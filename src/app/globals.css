@@ -1,26 +1,108 @@
 @import "tailwindcss";
 
+@theme {
+  /* ── Foundations (OLED-black hierarchy) ─────────────────────────── */
+  --color-bg-oled: #050506;
+  --color-bg-panel: #0d0f12;
+  --color-bg-elev: #14181d;
+  --color-line-subtle: #1e242c;
+  --color-line-strong: #2a313c;
+
+  --color-text-primary: #f4f6f8;
+  --color-text-secondary: #a4acb7;
+  --color-text-muted: #6b7380;
+
+  /* ── Restrained accents ─────────────────────────────────────────── */
+  --color-ember: #ff9e3d;    /* urgency, wildfire highlight */
+  --color-amber: #f5b041;    /* prepare state, warning */
+  --color-red: #e25656;      /* leave-now, severe only */
+  --color-cyan: #55b5d9;     /* verified, official, trust */
+
+  /* soft glow companions */
+  --color-ember-soft: #3a1c08;
+  --color-amber-soft: #3a2708;
+  --color-red-soft: #3a1414;
+  --color-cyan-soft: #0a2530;
+
+  /* ── Typography ─────────────────────────────────────────────────── */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-inter-tight), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── Motion curves ──────────────────────────────────────────────── */
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-micro: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --ring-focus: 0 0 0 2px color-mix(in oklab, var(--color-cyan) 50%, transparent);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--color-bg-oled);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-feature-settings: "ss01", "cv11";
 }
+
+/* Ambient OLED vignette — barely there, only present on landing */
+.evacua-vignette {
+  background-image:
+    radial-gradient(1200px 600px at 50% -10%, color-mix(in oklab, var(--color-ember) 7%, transparent) 0%, transparent 60%),
+    radial-gradient(800px 500px at 80% 110%, color-mix(in oklab, var(--color-cyan) 5%, transparent) 0%, transparent 60%);
+}
+
+.evacua-grid {
+  background-image:
+    linear-gradient(var(--color-line-subtle) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-line-subtle) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at center, #000 40%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 40%, transparent 78%);
+  opacity: 0.28;
+}
+
+/* Crisis-mode accent ring animation (used by LeaveByChip) */
+@keyframes ember-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-ember) 30%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-ember) 0%, transparent); }
+}
+
+.animate-ember-pulse {
+  animation: ember-pulse 2.4s var(--ease-premium) infinite;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Selection */
+::selection {
+  background: color-mix(in oklab, var(--color-cyan) 35%, transparent);
+  color: var(--color-text-primary);
+}
+
+/* Scrollbar (premium, minimal) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 8px;
+  border: 2px solid var(--color-bg-oled);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
