@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useSyncExternalStore } from "react";
+import { Suspense, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import { CommandTopBar } from "@/components/command-center/top-bar";
 import { HouseholdPanel } from "@/components/command-center/household-panel";
@@ -8,6 +8,7 @@ import { MapPanel } from "@/components/command-center/map-panel";
 import { PlanPanel } from "@/components/command-center/plan-panel";
 import { SignalsRail } from "@/components/command-center/signals-rail";
 import { useSignals } from "@/lib/hooks/use-signals";
+import { usePlan } from "@/lib/hooks/use-plan";
 import { useHouseholdStore } from "@/lib/store/household";
 import type { Household } from "@/lib/schemas/household";
 import { SCENARIOS } from "@/lib/scenarios";
@@ -48,13 +49,23 @@ function PlanContents() {
   const active = demoHousehold ?? household ?? null;
   const home = mounted && active ? active.coords : null;
 
-  const { data, isFetching } = useSignals({
+  const { data: signals, isFetching } = useSignals({
     home,
     demo: demoId ?? null,
   });
 
-  const mode: "live" | "scenario" = data?.mode ?? (demoId ? "scenario" : "live");
-  const state = data?.state ?? "watch";
+  const { plan, loading: planLoading } = usePlan({
+    household: mounted ? active : null,
+    events: signals?.events ?? [],
+    state: signals?.state ?? "watch",
+  });
+
+  const [selectedRouteId, setSelectedRouteId] = useState<string | undefined>();
+  const effectiveSelected = selectedRouteId ?? plan?.primaryRouteId;
+
+  const mode: "live" | "scenario" =
+    signals?.mode ?? (demoId ? "scenario" : "live");
+  const state = signals?.state ?? "watch";
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-bg-oled)]">
@@ -65,12 +76,12 @@ function PlanContents() {
           <HouseholdPanel
             household={mounted ? active : null}
             signalsSummary={{
-              active: data?.events.length ?? 0,
-              lastUpdated: data?.computedAt,
+              active: signals?.events.length ?? 0,
+              lastUpdated: signals?.computedAt,
             }}
           />
           <SignalsRail
-            events={data?.events ?? []}
+            events={signals?.events ?? []}
             mode={mode}
             isFetching={isFetching}
           />
@@ -79,30 +90,40 @@ function PlanContents() {
         <div className="relative min-h-[50vh] md:min-h-0">
           <MapPanel
             home={home ?? undefined}
-            destination={
-              mounted && active?.destinations?.[0]?.coords
-                ? active.destinations[0].coords
-                : null
-            }
+            destination={plan?.destination.coords ?? null}
+            routes={plan?.routes}
+            selectedRouteId={effectiveSelected}
+            events={signals?.events ?? []}
           />
         </div>
 
         <div className="hidden md:block">
-          <PlanPanel household={mounted ? active : null} />
+          <PlanPanel
+            household={mounted ? active : null}
+            plan={plan}
+            loading={planLoading}
+            onSelectRoute={setSelectedRouteId}
+            selectedRouteId={effectiveSelected}
+          />
         </div>
 
-        {/* Mobile stack */}
         <div className="space-y-3 md:hidden">
           <HouseholdPanel
             household={mounted ? active : null}
-            signalsSummary={{ active: data?.events.length ?? 0 }}
+            signalsSummary={{ active: signals?.events.length ?? 0 }}
           />
           <SignalsRail
-            events={data?.events ?? []}
+            events={signals?.events ?? []}
             mode={mode}
             isFetching={isFetching}
           />
-          <PlanPanel household={mounted ? active : null} />
+          <PlanPanel
+            household={mounted ? active : null}
+            plan={plan}
+            loading={planLoading}
+            onSelectRoute={setSelectedRouteId}
+            selectedRouteId={effectiveSelected}
+          />
         </div>
       </main>
     </div>
@@ -134,9 +155,7 @@ function buildDemoHousehold(scenarioId: string): Household | null {
         mobilityNotes: "Uses a walker",
       },
     ],
-    pets: [
-      { id: "p1", name: "Luna", species: "dog", carrier: false },
-    ],
+    pets: [{ id: "p1", name: "Luna", species: "dog", carrier: false }],
     medications: [{ id: "md1", name: "Insulin", critical: true }],
     mobilityNotes: "Grandma Rose uses a walker",
     vehicles: [
