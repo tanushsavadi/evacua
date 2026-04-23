@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useState, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { CommandTopBar } from "@/components/command-center/top-bar";
 import { HouseholdPanel } from "@/components/command-center/household-panel";
 import { MapPanel } from "@/components/command-center/map-panel";
@@ -54,11 +55,33 @@ function PlanContents() {
     demo: demoId ?? null,
   });
 
-  const { plan, loading: planLoading } = usePlan({
+  const { plan, loading: planLoading, latestDiff, acknowledgeDiff } = usePlan({
     household: mounted ? active : null,
     events: signals?.events ?? [],
     state: signals?.state ?? "watch",
   });
+
+  // Fire a toast the first time each diff lands. The Ember Field handles the
+  // detailed story — this is just a peripheral cue so the user looks over.
+  const lastToastedDiffId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!latestDiff) return;
+    if (lastToastedDiffId.current === latestDiff.id) return;
+    lastToastedDiffId.current = latestDiff.id;
+    const accent =
+      latestDiff.severity === "urgent"
+        ? "rgba(255,138,72,0.45)"
+        : latestDiff.severity === "notable"
+          ? "rgba(255,184,72,0.35)"
+          : "rgba(110,231,249,0.3)";
+    toast(latestDiff.headline, {
+      description: latestDiff.narrative,
+      duration: latestDiff.severity === "urgent" ? 7000 : 5000,
+      style: {
+        boxShadow: `0 0 0 1px ${accent}, 0 24px 60px -20px rgba(0,0,0,0.6)`,
+      },
+    });
+  }, [latestDiff]);
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | undefined>();
   const effectiveSelected = selectedRouteId ?? plan?.primaryRouteId;
@@ -104,6 +127,8 @@ function PlanContents() {
             loading={planLoading}
             onSelectRoute={setSelectedRouteId}
             selectedRouteId={effectiveSelected}
+            diff={latestDiff}
+            onDismissDiff={acknowledgeDiff}
           />
         </div>
 
@@ -123,6 +148,8 @@ function PlanContents() {
             loading={planLoading}
             onSelectRoute={setSelectedRouteId}
             selectedRouteId={effectiveSelected}
+            diff={latestDiff}
+            onDismissDiff={acknowledgeDiff}
           />
         </div>
       </main>

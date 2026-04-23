@@ -13,7 +13,9 @@ import { Button } from "@/components/ui/button";
 import { StateBadge } from "./state-badge";
 import { LeaveByChip } from "./leave-by-chip";
 import { SourceChip, type SourceKey } from "./source-chip";
+import { EmberField } from "./ember-field";
 import type { Plan, PlanTask } from "@/lib/schemas/plan";
+import type { PlanDiff } from "@/lib/schemas/plan-diff";
 import type { Household } from "@/lib/schemas/household";
 import { cn } from "@/lib/utils";
 
@@ -25,12 +27,16 @@ export function PlanPanel({
   loading,
   onSelectRoute,
   selectedRouteId,
+  diff,
+  onDismissDiff,
 }: {
   household: Household | null;
   plan: Plan | null;
   loading: boolean;
   onSelectRoute?: (routeId: string) => void;
   selectedRouteId?: string;
+  diff?: PlanDiff | null;
+  onDismissDiff?: () => void;
 }) {
   return (
     <aside className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--color-line-subtle)] bg-[var(--color-bg-panel)]/70 backdrop-blur-sm">
@@ -57,6 +63,7 @@ export function PlanPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        <EmberField diff={diff ?? null} onDismiss={() => onDismissDiff?.()} />
         {!household ? (
           <EmptyState />
         ) : !plan ? (
