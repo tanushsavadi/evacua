@@ -90,9 +90,11 @@ function PlanContents() {
     signals?.mode ?? (demoId ? "scenario" : "live");
   const state = signals?.state ?? "watch";
 
+  const goHref = demoId ? `/go?demo=${demoId}` : "/go";
+
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-bg-oled)]">
-      <CommandTopBar state={state} mode={mode} />
+      <CommandTopBar state={state} mode={mode} goHref={goHref} />
 
       <main className="grid flex-1 gap-3 overflow-hidden p-3 md:grid-cols-[300px_1fr_380px] md:gap-3 md:p-4 lg:grid-cols-[320px_1fr_420px] lg:p-5">
         <div className="hidden md:grid md:grid-rows-[auto_1fr] md:gap-3">
