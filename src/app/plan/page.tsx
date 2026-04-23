@@ -6,8 +6,11 @@ import { CommandTopBar } from "@/components/command-center/top-bar";
 import { HouseholdPanel } from "@/components/command-center/household-panel";
 import { MapPanel } from "@/components/command-center/map-panel";
 import { PlanPanel } from "@/components/command-center/plan-panel";
+import { SignalsRail } from "@/components/command-center/signals-rail";
+import { useSignals } from "@/lib/hooks/use-signals";
 import { useHouseholdStore } from "@/lib/store/household";
 import type { Household } from "@/lib/schemas/household";
+import { SCENARIOS } from "@/lib/scenarios";
 
 export default function PlanPage() {
   return (
@@ -30,8 +33,6 @@ const subscribe = () => () => {};
 function PlanContents() {
   const searchParams = useSearchParams();
   const demoId = searchParams.get("demo");
-  // useSyncExternalStore avoids hydration mismatches for idb-backed state
-  // without calling setState inside an effect.
   const mounted = useSyncExternalStore(
     subscribe,
     () => true,
@@ -39,67 +40,45 @@ function PlanContents() {
   );
   const household = useHouseholdStore((s) => s.household);
 
-  const demoHousehold: Household | null = demoId
-    ? {
-        id: `demo_${demoId}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        address: "1250 Sunset Blvd, Pacific Palisades, CA",
-        coords: { lat: 34.0489, lng: -118.5553 },
-        displayName: "Pacific Palisades demo",
-        dwelling: "single_family",
-        floors: 2,
-        accessNotes: "Narrow driveway, steep hill",
-        members: [
-          { id: "m1", name: "Alex", role: "adult", mobilityNotes: "" },
-          { id: "m2", name: "Priya", role: "adult", mobilityNotes: "" },
-          { id: "m3", name: "Mia", role: "child", mobilityNotes: "" },
-          { id: "m4", name: "Grandma Rose", role: "elder", mobilityNotes: "Uses a walker" },
-        ],
-        pets: [
-          { id: "p1", name: "Luna", species: "dog", carrier: false },
-          { id: "p2", name: "Beans", species: "cat", carrier: true },
-        ],
-        medications: [
-          { id: "md1", name: "Insulin", critical: true },
-          { id: "md2", name: "Inhaler", critical: false },
-        ],
-        mobilityNotes: "Grandma Rose uses a walker",
-        vehicles: [
-          { id: "v1", label: "Subaru Outback", seats: 5, fuelState: "half" },
-          { id: "v2", label: "Honda Civic", seats: 5, fuelState: "full" },
-        ],
-        contacts: [
-          { id: "c1", name: "Sister Jen", phone: "+1 (818) 555-0142", relation: "sibling" },
-        ],
-        destinations: [
-          {
-            id: "d1",
-            label: "Sister Jen's (Burbank)",
-            address: "225 N Hollywood Way, Burbank, CA",
-            coords: { lat: 34.1833, lng: -118.3231 },
-          },
-        ],
-      }
+  const scenario = demoId ? SCENARIOS[demoId] : undefined;
+  const demoHousehold: Household | null = scenario
+    ? buildDemoHousehold(scenario.id)
     : null;
 
   const active = demoHousehold ?? household ?? null;
+  const home = mounted && active ? active.coords : null;
+
+  const { data, isFetching } = useSignals({
+    home,
+    demo: demoId ?? null,
+  });
+
+  const mode: "live" | "scenario" = data?.mode ?? (demoId ? "scenario" : "live");
+  const state = data?.state ?? "watch";
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--color-bg-oled)]">
-      <CommandTopBar state="watch" mode={demoId ? "scenario" : "live"} />
+      <CommandTopBar state={state} mode={mode} />
 
-      <main className="grid flex-1 gap-3 overflow-hidden p-3 md:grid-cols-[280px_1fr_360px] md:gap-3 md:p-4 lg:grid-cols-[300px_1fr_400px] lg:p-5">
-        <div className="hidden md:block">
+      <main className="grid flex-1 gap-3 overflow-hidden p-3 md:grid-cols-[300px_1fr_380px] md:gap-3 md:p-4 lg:grid-cols-[320px_1fr_420px] lg:p-5">
+        <div className="hidden md:grid md:grid-rows-[auto_1fr] md:gap-3">
           <HouseholdPanel
             household={mounted ? active : null}
-            signalsSummary={{ active: 0 }}
+            signalsSummary={{
+              active: data?.events.length ?? 0,
+              lastUpdated: data?.computedAt,
+            }}
+          />
+          <SignalsRail
+            events={data?.events ?? []}
+            mode={mode}
+            isFetching={isFetching}
           />
         </div>
 
         <div className="relative min-h-[50vh] md:min-h-0">
           <MapPanel
-            home={mounted && active ? active.coords : undefined}
+            home={home ?? undefined}
             destination={
               mounted && active?.destinations?.[0]?.coords
                 ? active.destinations[0].coords
@@ -112,15 +91,73 @@ function PlanContents() {
           <PlanPanel household={mounted ? active : null} />
         </div>
 
-        {/* Mobile stack — household + plan below the map */}
+        {/* Mobile stack */}
         <div className="space-y-3 md:hidden">
           <HouseholdPanel
             household={mounted ? active : null}
-            signalsSummary={{ active: 0 }}
+            signalsSummary={{ active: data?.events.length ?? 0 }}
+          />
+          <SignalsRail
+            events={data?.events ?? []}
+            mode={mode}
+            isFetching={isFetching}
           />
           <PlanPanel household={mounted ? active : null} />
         </div>
       </main>
     </div>
   );
+}
+
+function buildDemoHousehold(scenarioId: string): Household | null {
+  const s = SCENARIOS[scenarioId];
+  if (!s) return null;
+  const now = new Date().toISOString();
+  return {
+    id: `demo_${s.id}`,
+    createdAt: now,
+    updatedAt: now,
+    address: `${s.homeLabel}, CA`,
+    coords: s.home,
+    displayName: `${s.homeLabel} demo`,
+    dwelling: "single_family",
+    floors: 2,
+    accessNotes: "",
+    members: [
+      { id: "m1", name: "Alex", role: "adult", mobilityNotes: "" },
+      { id: "m2", name: "Priya", role: "adult", mobilityNotes: "" },
+      { id: "m3", name: "Mia", role: "child", mobilityNotes: "" },
+      {
+        id: "m4",
+        name: "Grandma Rose",
+        role: "elder",
+        mobilityNotes: "Uses a walker",
+      },
+    ],
+    pets: [
+      { id: "p1", name: "Luna", species: "dog", carrier: false },
+    ],
+    medications: [{ id: "md1", name: "Insulin", critical: true }],
+    mobilityNotes: "Grandma Rose uses a walker",
+    vehicles: [
+      { id: "v1", label: "Subaru Outback", seats: 5, fuelState: "half" },
+      { id: "v2", label: "Honda Civic", seats: 5, fuelState: "full" },
+    ],
+    contacts: [
+      {
+        id: "c1",
+        name: "Sister Jen",
+        phone: "+1 (818) 555-0142",
+        relation: "sibling",
+      },
+    ],
+    destinations: [
+      {
+        id: "d1",
+        label: s.destination.label,
+        address: s.destination.address,
+        coords: s.destination.coords,
+      },
+    ],
+  };
 }
