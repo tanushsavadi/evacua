@@ -845,9 +845,9 @@ export function MapPanel({
             maxWidth: "240px",
             offset: 14,
           }).setHTML(
-            `<div class="rounded-lg border border-[var(--color-line-subtle)] bg-[var(--color-bg-panel)] p-3 shadow-2xl min-w-[200px]">
-              <div class="text-sm font-bold text-[var(--color-text-primary)] mb-1">${escapeHtml(station.name)}</div>
-              <div class="text-[11px] text-[var(--color-text-secondary)] font-medium">${escapeHtml([station.city, station.county].filter(Boolean).join(" - "))}</div>
+            `<div class="rounded-lg border border-line-subtle bg-bg-panel p-3 shadow-2xl min-w-[200px]">
+              <div class="text-sm font-bold text-text-primary mb-1">${escapeHtml(station.name)}</div>
+              <div class="text-[11px] text-text-secondary font-medium">${escapeHtml([station.city, station.county].filter(Boolean).join(" - "))}</div>
             </div>`,
           ),
         )
@@ -905,9 +905,9 @@ export function MapPanel({
             maxWidth: "260px",
             offset: 16,
           }).setHTML(
-            `<div class="rounded-lg border border-[var(--color-line-subtle)] bg-[var(--color-bg-panel)] p-3 shadow-2xl min-w-[220px]">
-              <div class="text-xs font-bold text-[var(--color-text-primary)] mb-1">Responder Team ${team.teamNumber}</div>
-              <div class="text-[11px] text-[var(--color-text-secondary)] font-medium leading-relaxed">${escapeHtml(`${station.name} to ${fire.name} - ${team.status.replace("_", " ")}`)}</div>
+            `<div class="rounded-lg border border-line-subtle bg-bg-panel p-3 shadow-2xl min-w-[220px]">
+              <div class="text-xs font-bold text-text-primary mb-1">Responder Team ${team.teamNumber}</div>
+              <div class="text-[11px] text-text-secondary font-medium leading-relaxed">${escapeHtml(`${station.name} to ${fire.name} - ${team.status.replace("_", " ")}`)}</div>
             </div>`,
           ),
         )
@@ -964,10 +964,10 @@ export function MapPanel({
             maxWidth: "260px",
             offset: 16,
           }).setHTML(
-            `<div class="rounded-lg border border-[var(--color-line-subtle)] bg-[var(--color-bg-panel)] p-3 shadow-2xl max-w-[260px]">
+            `<div class="rounded-lg border border-line-subtle bg-bg-panel p-3 shadow-2xl max-w-[260px]">
               ${mediaHtml}
-              <div class="text-sm font-bold text-[var(--color-text-primary)] mb-1 mt-2">${escapeHtml(ev.headline)}</div>
-              <div class="text-[11px] text-[var(--color-text-secondary)] font-medium leading-relaxed">${escapeHtml(ev.rationale ?? "")}</div>
+              <div class="text-sm font-bold text-text-primary mb-1 mt-2">${escapeHtml(ev.headline)}</div>
+              <div class="text-[11px] text-text-secondary font-medium leading-relaxed">${escapeHtml(ev.rationale ?? "")}</div>
             </div>`,
           ),
         )
@@ -1003,7 +1003,7 @@ export function MapPanel({
   }, [focusedEventId, events, fireState?.fires]);
 
   return (
-    <div className="evacua-panel relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-lg bg-[var(--color-bg-panel)]">
+    <div className="evacua-panel relative isolate flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-lg bg-bg-panel">
       {/*
         Mapbox must mount in an in-flow box with real height. An all-absolute
         tree collapses the panel’s content height → tiny canvas (thin strip).
@@ -1015,9 +1015,9 @@ export function MapPanel({
         {!MAPBOX_TOKEN && (
           <div className="flex h-full min-h-[420px] items-center justify-center bg-black/40 p-6 text-center">
             <div className="max-w-[320px]">
-              <div className="mx-auto mb-3 h-1.5 w-20 rounded-full bg-[var(--color-cyan)]/60" />
+              <div className="mx-auto mb-3 h-1.5 w-20 rounded-full bg-cyan/60" />
               <p className="text-sm font-semibold text-white">Map source unavailable</p>
-              <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
+              <p className="mt-2 text-xs leading-relaxed text-text-muted">
                 Set NEXT_PUBLIC_MAPBOX_TOKEN, or run demo mode with EVACUA_DEMO_MODE=true to use the bundled demo map token.
               </p>
             </div>
@@ -1030,7 +1030,7 @@ export function MapPanel({
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 rounded-t-lg bg-gradient-to-b from-[var(--color-bg-panel)] to-transparent opacity-70"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 rounded-t-lg bg-linear-to-b from-bg-panel to-transparent opacity-70"
       />
       <style jsx global>{`
         .evacua-map-mount .mapboxgl-map,
@@ -1616,7 +1616,7 @@ function showFireIncidentPopup(map: mapboxgl.Map, popupRef: React.MutableRefObje
           </div>
         </div>
         
-        <div class="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+        <div class="h-px bg-linear-to-r from-transparent via-white/10 to-transparent"></div>
 
         <div class="grid grid-cols-2 gap-2">
           <div class="flex flex-col">
