@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
-import { fetchNwsAlerts } from "@/lib/adapters/nws";
-import { fetchNifcPerimeters } from "@/lib/adapters/nifc";
-import { SCENARIOS, framesUpTo } from "@/lib/scenarios";
-import { scoreAll, deriveCrisisState } from "@/lib/scoring/impact";
-import { CrisisEventSchema, type CrisisEvent } from "@/lib/schemas/crisis";
+import { deriveCrisisState } from "@/lib/scoring/impact";
+import {
+  buildFireStateFromSupabase,
+  fireStateToEvents,
+} from "@/lib/ops/supabase-fire-ops";
 
 export const runtime = "nodejs";
 
 type Body = {
   lat: number;
   lng: number;
-  demo?: string;
-  tSec?: number;
   previousState?: "watch" | "prepare" | "leave";
 };
 
@@ -33,40 +31,43 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid coordinates" }, { status: 400 });
   }
 
-  const events: CrisisEvent[] = [];
-  const sourcesUsed: string[] = [];
-  let mode: "live" | "scenario" = "live";
+  try {
+    const fireState = await buildFireStateFromSupabase();
+    const events = fireStateToEvents(fireState)
+      .map((event) => ({
+        ...event,
+        distanceKm: haversineKm(home.lat, home.lng, event.centroid.lat, event.centroid.lng),
+      }))
+      .sort((a, b) => (b.impact ?? 0) - (a.impact ?? 0))
+      .slice(0, 25);
+    const state = deriveCrisisState(events, body.previousState);
 
-  if (body.demo && SCENARIOS[body.demo]) {
-    mode = "scenario";
-    const scn = SCENARIOS[body.demo];
-    const frame = framesUpTo(scn, body.tSec ?? 9999);
-    for (const ev of frame.events) {
-      const parsed = CrisisEventSchema.safeParse(ev);
-      if (parsed.success) events.push(parsed.data);
-    }
-    sourcesUsed.push("scenario");
-  } else {
-    const [nws, nifc] = await Promise.all([
-      fetchNwsAlerts(home).catch(() => []),
-      fetchNifcPerimeters(home).catch(() => []),
-    ]);
-    for (const ev of [...nws, ...nifc]) {
-      const parsed = CrisisEventSchema.safeParse(ev);
-      if (parsed.success) events.push(parsed.data);
-    }
-    if (nws.length) sourcesUsed.push("nws");
-    if (nifc.length) sourcesUsed.push("nifc");
+    return NextResponse.json({
+      mode: "live",
+      sourcesUsed: ["supabase", "calfire"],
+      state,
+      events,
+      computedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Signals API error:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to fetch operations signals",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    );
   }
+}
 
-  const scored = scoreAll(events, home).slice(0, 12);
-  const state = deriveCrisisState(scored, body.previousState);
-
-  return NextResponse.json({
-    mode,
-    sourcesUsed,
-    state,
-    events: scored,
-    computedAt: new Date().toISOString(),
-  });
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

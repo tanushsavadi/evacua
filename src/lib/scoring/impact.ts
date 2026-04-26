@@ -1,5 +1,5 @@
 import type { CrisisEvent, CrisisKind, CrisisSeverity } from "@/lib/schemas/crisis";
-import type { LatLng } from "@/lib/schemas/household";
+import type { LatLng } from "@/lib/geo/types";
 import { haversineKm } from "@/lib/utils";
 
 const SEVERITY_WEIGHT: Record<CrisisSeverity, number> = {

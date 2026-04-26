@@ -2,7 +2,7 @@ import type { CrisisEvent } from "@/lib/schemas/crisis";
 
 /**
  * NIFC — Current Interagency Fire Perimeters (public, no auth).
- * We fetch a bounding-box slice around the household so the payload
+ * We fetch a bounding-box slice around the operations center so the payload
  * stays small.
  */
 export async function fetchNifcPerimeters(opts: {

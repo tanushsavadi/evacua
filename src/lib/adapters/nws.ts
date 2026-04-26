@@ -73,7 +73,7 @@ export async function fetchNwsAlerts(opts: {
   radiusKm?: number;
 }): Promise<CrisisEvent[]> {
   // We currently fetch all active CA alerts and let the impact scorer
-  // apply proximity falloff against the supplied household coords.
+  // apply proximity falloff against the supplied operations center coords.
   void opts;
   const url =
     "https://api.weather.gov/alerts/active?area=CA&limit=200";

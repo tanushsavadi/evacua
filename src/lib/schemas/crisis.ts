@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LatLngSchema } from "./household";
+import { LatLngSchema } from "@/lib/geo/types";
 
 export const CrisisKind = z.enum([
   "fire_perimeter",
@@ -21,7 +21,6 @@ export const CrisisSource = z.enum([
   "nifc",
   "calfire",
   "caltrans",
-  "scenario",
 ]);
 export type CrisisSource = z.infer<typeof CrisisSource>;
 
@@ -50,7 +49,7 @@ export const CrisisEventSchema = z.object({
   /** Optional linear feature for road closures / routes. */
   line: z.array(z.tuple([z.number(), z.number()])).optional(),
 
-  /** Normalized distance (km) from household. Filled by scorer. */
+  /** Normalized distance (km) from the operations center. Filled by scorer. */
   distanceKm: z.number().optional(),
 
   /** Impact score [0..1]. Filled by scorer. */
