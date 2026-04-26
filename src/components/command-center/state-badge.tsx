@@ -48,13 +48,13 @@ export function StateBadge({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border font-medium",
+        "inline-flex items-center gap-1.5 rounded-md border font-medium",
         s.bg,
         s.text,
         s.tag,
         size === "sm"
-          ? "px-2 py-0.5 text-[10.5px] uppercase tracking-[0.16em]"
-          : "px-2.5 py-1 text-[11px] uppercase tracking-[0.18em]",
+          ? "px-2 py-0.5 text-[10.5px] uppercase"
+          : "px-2.5 py-1 text-[11px] uppercase",
         className,
       )}
     >

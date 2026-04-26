@@ -7,8 +7,7 @@ export type SourceKey =
   | "nifc"
   | "calfire"
   | "caltrans"
-  | "osm"
-  | "scenario";
+  | "osm";
 
 const LABELS: Record<SourceKey, string> = {
   nws: "NWS",
@@ -16,7 +15,6 @@ const LABELS: Record<SourceKey, string> = {
   calfire: "CAL FIRE",
   caltrans: "Caltrans",
   osm: "OSM",
-  scenario: "Scenario",
 };
 
 export function SourceChip({
@@ -37,7 +35,7 @@ export function SourceChip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-[var(--color-line-subtle)] bg-[var(--color-bg-oled)]/70 px-2.5 py-0.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-[var(--color-text-secondary)]",
+        "inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-black/35 px-2.5 py-0.5 font-mono text-[10.5px] uppercase text-[var(--color-text-secondary)]",
         className,
       )}
     >
@@ -45,7 +43,7 @@ export function SourceChip({
       <span>{LABELS[source]}</span>
       {publishedAt && (
         <>
-          <span className="text-[var(--color-text-muted)]">·</span>
+          <span className="text-[var(--color-text-muted)]">/</span>
           <span className="text-[var(--color-text-muted)]">
             {formatRelativeTime(publishedAt)}
           </span>
@@ -53,7 +51,7 @@ export function SourceChip({
       )}
       {pct !== undefined && (
         <>
-          <span className="text-[var(--color-text-muted)]">·</span>
+          <span className="text-[var(--color-text-muted)]">/</span>
           <span className="text-[var(--color-text-primary)]">{pct}%</span>
         </>
       )}

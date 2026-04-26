@@ -11,7 +11,7 @@ export function Label({
   return (
     <label
       className={cn(
-        "block text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--color-text-muted)]",
+        "block text-[11px] font-medium uppercase text-[var(--color-text-muted)]",
         className,
       )}
       {...props}
@@ -31,7 +31,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <input
         ref={ref}
         className={cn(
-          "flex h-11 w-full rounded-xl border bg-[var(--color-bg-panel)] px-4 text-[15px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-[var(--ease-premium)]",
+          "flex h-11 w-full rounded-lg border bg-[var(--color-bg-panel)] px-4 text-[15px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-[var(--ease-premium)]",
           invalid
             ? "border-[var(--color-red)]/70 focus-visible:border-[var(--color-red)] focus-visible:ring-2 focus-visible:ring-[var(--color-red)]/30"
             : "border-[var(--color-line-subtle)] hover:border-[var(--color-line-strong)] focus-visible:border-[var(--color-cyan)] focus-visible:ring-2 focus-visible:ring-[var(--color-cyan)]/20",
@@ -52,7 +52,7 @@ export const Textarea = React.forwardRef<
     <textarea
       ref={ref}
       className={cn(
-        "min-h-[88px] w-full rounded-xl border bg-[var(--color-bg-panel)] px-4 py-3 text-[15px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none transition-[border-color,box-shadow] duration-200 ease-[var(--ease-premium)]",
+        "min-h-[88px] w-full rounded-lg border bg-[var(--color-bg-panel)] px-4 py-3 text-[15px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none transition-[border-color,box-shadow] duration-200 ease-[var(--ease-premium)]",
         invalid
           ? "border-[var(--color-red)]/70 focus-visible:border-[var(--color-red)] focus-visible:ring-2 focus-visible:ring-[var(--color-red)]/30"
           : "border-[var(--color-line-subtle)] hover:border-[var(--color-line-strong)] focus-visible:border-[var(--color-cyan)] focus-visible:ring-2 focus-visible:ring-[var(--color-cyan)]/20",
@@ -101,13 +101,13 @@ export function SegmentedGroup<T extends string>({
             aria-checked={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "rounded-xl border px-3 py-3 text-left transition-colors duration-200",
+              "rounded-lg border px-3 py-3 text-left transition-colors duration-200",
               active
                 ? "border-[var(--color-ember)]/70 bg-[var(--color-ember-soft)]/60 text-[var(--color-text-primary)]"
                 : "border-[var(--color-line-subtle)] bg-[var(--color-bg-panel)] text-[var(--color-text-secondary)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-text-primary)]",
             )}
           >
-            <div className="text-[13px] font-medium tracking-[-0.005em]">
+            <div className="text-[13px] font-medium">
               {o.label}
             </div>
             {o.hint && (
