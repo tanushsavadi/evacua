@@ -67,13 +67,10 @@ type FireAnimationState = {
 };
 
 const METERS_PER_DEGREE_LAT = 111320;
-const EVACUA_DEMO_MAPBOX_TOKEN =
-  "";
-const DEMO_MAPBOX_FALLBACK_ENABLED = process.env.NEXT_PUBLIC_EVACUA_DEMO_MODE === "true";
 const MAPBOX_TOKEN =
   process.env.NEXT_PUBLIC_MAPBOX_TOKEN ??
   process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ??
-  (DEMO_MAPBOX_FALLBACK_ENABLED ? EVACUA_DEMO_MAPBOX_TOKEN : "");
+  "";
 
 type Props = {
   home?: LatLng | null;
