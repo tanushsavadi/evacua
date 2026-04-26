@@ -1,162 +1,137 @@
 # Evacua
 
-**The missing planning layer between alerts and action.**
+Voice-first responder command center for wildfire operations.
 
-Evacua is an agentic household evacuation copilot for California wildfires.
-It watches live public crisis signals, composes a household-specific plan
-(leave-by time, primary and backup route, destination, role-based
-checklist), and **re-plans itself** when conditions change — narrating
-what moved and why.
+Evacua uses a responder-focused backend model: Supabase stores active
+incidents, fire stations, responders, route advisories, and evacuation zones.
+The Next.js API routes expose that data to a responder-only command surface for
+incident monitoring, dispatch, route updates, environmental context, voice ops,
+internal AI incident planning, approval-gated alerts, and deterministic judge
+demo runs.
 
----
+The responder map uses Mapbox GL with dark terrain styling, 3D building
+extrusions, animated fire perimeters, evacuation buffers, staging routes, and
+route-advisory overlays.
 
-## The problem
-
-Families already receive alerts. What they don't have is a planner. In a
-real evacuation, they have to decide — under stress, with kids, pets,
-medications, mobility needs, and a limited number of vehicles — who does
-what, in what order, and where you all end up. Evacua is that missing
-layer.
-
-## The closed loop
-
-```
-public signals  →  impact scoring  →  Plan Agent  →  diff vs. last plan
-     ^                                                          │
-     └──────────────  Ember Field drawer + toast  ──────────────┘
-```
-
-Every poll (4s in scenario mode, 90s live) we re-derive the crisis state
-using hysteresis-aware logic. When the Plan Agent composes a meaningfully
-different plan, a client-side **Diff Narrator** drops an _Ember Field_
-card into the Plan panel with a one-line headline, a short narrative,
-and the trigger events.
-
-## Surfaces
+## Routes
 
 | Route | Purpose |
 | ----- | ------- |
-| `/` | Cinematic landing page with hero, how-it-works, and scripted scenario picker |
-| `/setup` | Address-first household wizard (dwelling, people, pets, meds, logistics) |
-| `/plan` | Mission control: 3-panel command center (household, dark MapLibre map, plan) |
-| `/plan?demo=<id>` | Same command center, but running a scripted scenario end-to-end |
-| `/go` | Mobile action card — huge leave-by, next task, voice briefing |
+| `/` | Canonical live responder dashboard and judge-demo surface |
+| `/plan` | Deprecated redirect to `/` |
+| `/api/demo/reset` | Reset the curated Pine Ridge demo scenario |
+| `/api/demo-readiness` | Non-secret readiness checks for demo keys and modes |
+| `/api/fire-state` | Active fires and fire stations from Supabase |
+| `/api/dispatch-responder` | Responder stats and nearest-team dispatch |
+| `/api/update-routes` | Route advisories and evacuation-zone writes |
+| `/api/fire-agent` | Autonomous route/evacuation scan over Supabase fire state |
+| `/api/evacua-briefing` | Read-only assistant briefing synthesis |
+| `/api/evacua-commander` | Internal approval-gated responder plan tool |
+| `/api/evacua-agent-runs` | Durable Evacua intelligence run orchestration |
+| `/api/evacua-agent-runs/:runId` | Fetch a stored intelligence run |
+| `/api/send-emergency-alert` | Dry-run alert preparation by default, live dispatch only when enabled |
 
-## AI surface
+## Environment
 
-Two thin agents, each with a deterministic fallback:
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+EVACUA_DEMO_MODE=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_MAPBOX_TOKEN=
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+EVACUA_ALERT_MODE=
+SMS_WEBHOOK_URL=
+EMAIL_WEBHOOK_URL=
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-opus-4-7
+NEXT_PUBLIC_VAPI_PUBLIC_KEY=
+NEXT_PUBLIC_VAPI_ASSISTANT_ID=
+```
 
-- **Plan Agent** — composes a baseline plan deterministically (leave-by,
-  destination, OSRM routes, state-aware tasks), then optionally asks
-  **Claude Opus 4.7** to rewrite the headline, reasoning, and task list
-  with a terse, directive tone. If the Anthropic call fails or the
-  rewrite doesn't parse, we silently keep the deterministic plan and mark
-  `author: "fallback"`.
-- **Diff Narrator** — runs on the client. Given `prevPlan`, `nextPlan`,
-  and the most recent events, it emits a structured `PlanDiff` with a
-  headline, narrative, severity, and trigger events. Returns `null` for
-  cosmetic churn so the Ember Field doesn't pop every poll.
+`SUPABASE_SERVICE_ROLE_KEY` is optional but recommended for server-side writes.
+If it is omitted, API routes use `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
-Evacua never invents road names. The plan's route descriptions come from
-OSRM's leg steps; AI narration is constrained to what those routes
-actually say.
+If the Supabase env vars are missing, Evacua serves bundled responder demo data
+with active California fire incidents, stations, responders, route advisories,
+and evacuation-zone recommendations. Set `EVACUA_DEMO_MODE=true` to force that
+demo data even when Supabase is configured, or `EVACUA_DEMO_MODE=false` to make
+missing Supabase config fail loudly.
 
-## Tech stack
+`NEXT_PUBLIC_MAPBOX_TOKEN` is recommended for production. The bundled public
+demo token is used only when curated demo mode is active, so production builds
+should provide their own Mapbox token.
 
-- **Next.js 16** App Router · **React 19** · **TypeScript**
-- **Tailwind v4** + a custom OLED-black design system (tokens live in
-  `src/app/globals.css`)
-- **Framer Motion** for calm-to-crisis motion with shared easings
-- **MapLibre GL** on OpenFreeMap Positron tiles with runtime dark
-  overrides (`src/lib/map/style.ts`) — no token, no vendor lock-in
-- **Zod** for every boundary (household, crisis event, plan, plan diff)
-- **Zustand + idb-keyval** for local-first household persistence
-- **Anthropic Claude Opus 4.7** via `@anthropic-ai/sdk`, optional
-- **Web Speech API** for the `/go` voice briefing
+Alerts are dry-run by default. Even when Telegram or webhook keys exist,
+`/api/send-emergency-alert` prepares the alert draft without sending it unless
+`EVACUA_ALERT_MODE=live`.
 
-## Data sources
+`ANTHROPIC_API_KEY` enables the hidden Evacua planning, briefing, role handoff,
+and safety-review workflows. If it is omitted, the routes still return
+deterministic, approval-gated demo plans using the same structured response
+shape. `ANTHROPIC_MODEL` defaults to `claude-opus-4-7`, but the model identity
+is not surfaced in the operator UI.
 
-All free, public, no-token, no-auth:
+`NEXT_PUBLIC_VAPI_PUBLIC_KEY` and `NEXT_PUBLIC_VAPI_ASSISTANT_ID` wire the
+browser voice session to a Vapi assistant. Vapi handles speech transport and
+transcripts; final operator transcripts are routed back into Evacua's internal
+planning/briefing APIs so the same approval-gated workflow is used for voice and
+typed commands.
 
-| Source | What it gives us |
-| ------ | ---------------- |
-| [NWS `api.weather.gov`](https://api.weather.gov) | Red Flag, fire weather, evacuation alerts |
-| [NIFC WFIGS](https://data-nifc.opendata.arcgis.com/) | Current interagency fire perimeters |
-| [OSRM public demo](https://router.project-osrm.org) | Driving routes + alternatives |
-| [Nominatim](https://nominatim.openstreetmap.org) | Address geocoding (proxied server-side) |
-| [OpenFreeMap](https://openfreemap.org) | Basemap tiles |
+## Internal AI Orchestration
 
-A bundled **Scenario Engine** runs alongside live signals so the
-re-plan-in-real-time demo always works regardless of current real-world
-conditions.
+The dashboard includes an Evacua conversational assistant that turns operator
+voice or typed requests into either a concise operations brief or an auditable
+incident action plan. The backend reads fire state, responder availability,
+route advisories, evacuation zones, and the existing alert payload schema, then
+returns:
 
-## Running locally
+- risk posture: `watch`, `prepare`, or `leave`
+- next dispatch, alert, route, evacuation, and monitor actions
+- an alert draft generated from `AlertPayload`
+- a durable run trace with explicit safety-gate steps
+- role handoffs for incident, logistics, communications, and safety review
+- an ICS-201-style markdown brief for export
+
+The assistant briefing route runs a read-only tool loop over fire, responder,
+route, zone, and alert context before synthesizing a spoken ops brief. The
+agent-run route mirrors a managed-agent-style pattern internally: it creates a
+run log, calls briefing and planning tools, merges role findings, safety-reviews
+actions, and returns a before/after digital twin replay for the dashboard.
+
+Dispatches and public alerts are never executed by planning routes. The UI
+exposes contextual approval buttons only after Evacua produces an actionable
+plan, and those buttons call the existing dispatch and alert APIs.
+
+## Judge Demo
+
+The `Judge demo` control on `/` runs a deterministic walkthrough:
+
+1. Reset curated demo state.
+2. Select Pine Ridge Fire.
+3. Generate a concise incident brief.
+4. Start an Evacua intelligence run.
+5. Render plan cards, trace timeline, map overlays, alert draft, safety review,
+   digital twin replay, and approval-gated CTAs.
+
+## Supabase Tables
+
+The backend expects these Supabase tables/views:
+
+- `incidents`
+- `firestations`
+- `responders`
+- `responder_stats`
+- `route_updates`
+- `evacuation_zones`
+
+## Running Locally
 
 ```bash
 pnpm install
-cp .env.example .env.local   # optional — add ANTHROPIC_API_KEY for Opus
+cp .env.example .env.local
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Jump straight to
-[/plan?demo=coastal-palisades](http://localhost:3000/plan?demo=coastal-palisades)
-to see the re-plan loop without any setup.
-
-### Env
-
-| Variable | Purpose |
-| -------- | ------- |
-| `ANTHROPIC_API_KEY` | Optional. Enables Opus 4.7 narration on the Plan Agent. Everything still works without it — the product just relies on the deterministic planner. |
-| `ANTHROPIC_MODEL` | Optional override, defaults to `claude-opus-4-7` |
-| `NOMINATIM_UA` | Optional user-agent string for polite Nominatim usage |
-
-### Scripts
-
-```bash
-pnpm dev       # turbopack dev server
-pnpm build     # type-check + production build
-pnpm lint      # eslint
-```
-
-## Project map
-
-```
-src/
-  app/
-    page.tsx           # landing
-    setup/page.tsx     # household wizard
-    plan/page.tsx      # command center
-    go/page.tsx        # mobile action card
-    api/
-      geocode/         # Nominatim proxy
-      signals/         # live + scenario signals
-      plan/            # Plan Agent endpoint
-  components/
-    landing/           # hero, scenario picker, trust strip
-    setup/             # wizard + steps + field primitives
-    command-center/    # 3-panel shell, map, plan, signals rail, ember field
-    mobile/            # (currently in-route at app/go/)
-  lib/
-    schemas/           # zod: household, crisis, plan, plan-diff
-    adapters/          # nws, nifc → crisis event
-    scenarios/         # scripted timelines
-    scoring/           # impact + state derivation
-    agents/            # plan-agent, diff-narrator
-    router/            # osrm client
-    hooks/             # use-signals, use-plan
-    map/               # dark-style overrides
-    voice/             # web speech api wrapper
-    store/             # zustand + idb-keyval household store
-    utils.ts           # cn, formatCountdown, haversineKm
-```
-
-See [`agents.md`](./agents.md) for a deeper architecture note.
-
-## License
-
-MIT — see [`LICENSE`](./LICENSE).
-
----
-
-Built in focused, phased commits. None of the vendored assets, tiles,
-or APIs require a paid account.
+Open [http://localhost:3000](http://localhost:3000).
