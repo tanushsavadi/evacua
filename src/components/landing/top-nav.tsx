@@ -10,10 +10,16 @@ export function TopNav() {
         <Wordmark />
         <nav className="flex items-center gap-1 text-[13px] text-[var(--color-text-secondary)]">
           <Link
+            href="/plan"
+            className="rounded-full px-3 py-1.5 transition-colors hover:text-[var(--color-text-primary)] hover:bg-white/[0.04]"
+          >
+            Command center
+          </Link>
+          <Link
             href="#how-it-works"
             className="rounded-full px-3 py-1.5 transition-colors hover:text-[var(--color-text-primary)] hover:bg-white/[0.04]"
           >
-            How it works
+            Workflow
           </Link>
           <Link
             href="#sources"

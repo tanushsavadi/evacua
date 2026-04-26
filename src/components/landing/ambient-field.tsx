@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 /**
  * Ambient landing backdrop. An almost-invisible dark field with two
  * slow-breathing radial washes (ember + cyan) and a contour grid masked
- * into the center. Entirely decorative — sits behind all landing content.
+ * into the center. Entirely decorative - sits behind all landing content.
  */
 export function AmbientField() {
   return (

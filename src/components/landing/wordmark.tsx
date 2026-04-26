@@ -12,7 +12,7 @@ export function Wordmark({
       <EmberMark />
       <span
         className={cn(
-          "font-display text-[15px] font-medium tracking-[-0.01em]",
+          "font-display text-[15px] font-medium",
           subtle ? "text-[var(--color-text-secondary)]" : "text-[var(--color-text-primary)]",
         )}
       >

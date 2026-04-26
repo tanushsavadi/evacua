@@ -26,7 +26,7 @@ export function TrustStrip() {
         transition={{ duration: 0.7, ease: EASE }}
         className="flex flex-col items-center gap-4"
       >
-        <div className="inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
+        <div className="inline-flex items-center gap-2 text-[11px] font-medium uppercase text-[var(--color-text-muted)]">
           <ShieldCheck
             className="h-3.5 w-3.5 text-[var(--color-cyan)]"
             strokeWidth={1.75}
@@ -38,7 +38,7 @@ export function TrustStrip() {
           {sources.map((s) => (
             <li
               key={s.name}
-              className="group relative font-display text-[13px] font-medium tracking-[-0.005em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
+              className="group relative font-display text-[13px] font-medium text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
               title={s.full}
             >
               {s.name}

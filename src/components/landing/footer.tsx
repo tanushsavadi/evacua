@@ -7,14 +7,14 @@ export function Footer() {
         <div className="flex flex-col gap-2">
           <Wordmark subtle />
           <p className="max-w-sm text-[12px] leading-relaxed text-[var(--color-text-muted)]">
-            Evacua is a research-stage open-source project. It complements —
-            does not replace — guidance from local emergency services.
+            Evacua is a research-stage open-source project. It complements -
+            does not replace - guidance from local emergency services.
           </p>
         </div>
-        <div className="flex items-center gap-6 font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
-          <span>v0.1 · MIT</span>
+        <div className="flex items-center gap-6 font-mono text-[11px] uppercase text-[var(--color-text-muted)]">
+          <span>v0.1 - MIT</span>
           <span aria-hidden className="h-3 w-px bg-[var(--color-line-subtle)]" />
-          <span>Made for California households</span>
+          <span>Made for California responders</span>
         </div>
       </div>
     </footer>
