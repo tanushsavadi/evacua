@@ -22,14 +22,14 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Evacua — Evacuation OS for California Households",
+  title: "Evacua - Responder Dashboard for Wildfire Operations",
   description:
-    "Evacua is an agentic household evacuation copilot. It turns live wildfire, weather, and road signals into a household-specific plan that updates itself as conditions change.",
+    "Evacua is a responder dashboard that turns live wildfire, weather, responder, and route data into an operational command surface.",
   metadataBase: new URL("https://evacua.app"),
   openGraph: {
-    title: "Evacua — Evacuation OS",
+    title: "Evacua - Responder Dashboard",
     description:
-      "The missing planning layer between alerts and action.",
+      "A live wildfire operations surface for incidents, routes, responders, and alerts.",
     type: "website",
   },
   icons: {
