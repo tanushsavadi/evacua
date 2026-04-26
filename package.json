@@ -6,18 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.0",
     "@hookform/resolvers": "^5.2.2",
+    "@vapi-ai/web": "^2.5.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "idb-keyval": "^6.2.2",
     "lucide-react": "^1.9.0",
-    "maplibre-gl": "^5.24.0",
+    "mapbox-gl": "^2.15.0",
     "next": "16.2.4",
+    "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.73.1",
@@ -28,6 +31,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/mapbox-gl": "^2.7.21",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
