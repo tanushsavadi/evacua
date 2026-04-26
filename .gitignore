@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+venv/
+**/venv/
 /.pnp
 .pnp.*
 .yarn/*
@@ -23,6 +25,9 @@
 # misc
 .DS_Store
 *.pem
+CalHacks-main/
+scratch/
+test_alert.js
 
 # debug
 npm-debug.log*
