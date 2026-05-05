@@ -68,8 +68,8 @@ type FireAnimationState = {
 
 const METERS_PER_DEGREE_LAT = 111320;
 const MAPBOX_TOKEN =
-  process.env.NEXT_PUBLIC_MAPBOX_TOKEN ??
-  process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ??
+  process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim() ||
+  process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() ||
   "";
 
 type Props = {
@@ -296,21 +296,36 @@ export function MapPanel({
         data: { type: "FeatureCollection", features: [] },
       });
       map.addLayer({
+        id: "evacua-fire-spread-shadow",
+        type: "fill",
+        source: "evacua-fire-spread",
+        filter: ["==", ["get", "phase"], "projected"],
+        paint: {
+          "fill-color": "#7A1D08",
+          "fill-opacity": [
+            "interpolate",
+            ["linear"],
+            ["get", "spreadPulse"],
+            0, 0.08,
+            1, 0.2,
+          ],
+          "fill-outline-color": "rgba(255, 130, 50, 0.18)",
+        },
+      });
+      map.addLayer({
         id: "evacua-fire-spread-fill",
         type: "fill",
         source: "evacua-fire-spread",
+        filter: ["match", ["get", "phase"], ["core", "active"], true, false],
         paint: {
           "fill-color": [
-            "interpolate",
-            ["linear"],
-            ["get", "intensity"],
-            0, "rgba(140, 20, 0, 0.35)",      // Core (oldest)
-            0.2, "rgba(180, 35, 5, 0.45)",    // Deep maroon-red
-            0.35, "rgba(200, 50, 10, 0.55)",  // Dark burnt orange
-            0.5, "rgba(220, 70, 15, 0.65)",   // Rich orange-red
-            0.65, "rgba(235, 90, 25, 0.7)",   // Deeper orange
-            0.8, "rgba(245, 110, 35, 0.75)",  // Bright orange
-            1, "rgba(255, 130, 50, 0.8)"      // Edge (active)
+            "match",
+            ["get", "phase"],
+            "core",
+            "rgba(115, 18, 0, 0.72)",
+            "active",
+            "rgba(255, 88, 22, 0.76)",
+            "rgba(255, 130, 50, 0.55)",
           ],
           "fill-opacity": [
             "interpolate",
@@ -325,25 +340,82 @@ export function MapPanel({
         },
       });
 
-      // Add glow outline layer
+      // Active flame front and wind-driven projected edge.
       map.addLayer({
-        id: "fire-glow-outline",
+        id: "evacua-fire-active-front",
         type: "line",
         source: "evacua-fire-spread",
+        filter: ["==", ["get", "phase"], "active"],
         paint: {
-          "line-color": "rgba(240, 100, 40, 0.75)",
+          "line-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "spreadPulse"],
+            0, "rgba(255, 178, 69, 0.68)",
+            1, "rgba(255, 78, 22, 0.96)",
+          ],
           "line-width": [
             "interpolate",
             ["linear"],
             ["zoom"],
-            7, 1.5,
-            12, 3,
-            15, 5
+            7, 2.2,
+            12, 4.5,
+            15, 7
           ],
-          "line-blur": 4,
-          "line-opacity": 0.8
+          "line-blur": [
+            "interpolate",
+            ["linear"],
+            ["get", "spreadPulse"],
+            0, 1.2,
+            1, 4.5,
+          ],
+          "line-opacity": 0.9
         }
       }, "evacua-fire-spread-fill");
+      map.addLayer({
+        id: "evacua-fire-projected-front",
+        type: "line",
+        source: "evacua-fire-spread",
+        filter: ["==", ["get", "phase"], "projected"],
+        paint: {
+          "line-color": "rgba(255, 158, 61, 0.82)",
+          "line-width": 1.5,
+          "line-opacity": [
+            "interpolate",
+            ["linear"],
+            ["get", "spreadPulse"],
+            0, 0.25,
+            1, 0.72,
+          ],
+          "line-dasharray": [1.2, 1.8],
+        },
+      }, "evacua-fire-active-front");
+      map.addLayer({
+        id: "evacua-fire-ember-spots",
+        type: "circle",
+        source: "evacua-fire-spread",
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["get", "spotIntensity"],
+            0, 2,
+            1, 7,
+          ],
+          "circle-color": "#FFB245",
+          "circle-opacity": [
+            "interpolate",
+            ["linear"],
+            ["get", "spreadPulse"],
+            0, 0.18,
+            1, 0.84,
+          ],
+          "circle-blur": 0.55,
+          "circle-stroke-color": "rgba(255, 91, 46, 0.7)",
+          "circle-stroke-width": 0.7,
+        },
+      }, "evacua-fire-active-front");
 
       const openFireFromLayer = (event: MapLayerMouseEvent) => {
         const feature = event.features?.[0];
@@ -698,7 +770,7 @@ export function MapPanel({
           roughness: 0.15 + Math.random() * 0.2,
           waveSpeed: 0.25 + Math.random() * 0.4,
           amplitude: 80 + Math.random() * 120,
-          expansionRate: (fire.risk_level === 'critical' ? 22 : fire.risk_level === 'high' ? 16 : 10),
+          expansionRate: fire.risk_level === "critical" ? 22 : fire.risk_level === "high" ? 16 : 10,
           seed,
           growthVectors,
           startTime: Date.now(),
@@ -722,7 +794,7 @@ export function MapPanel({
         if (src) {
           const features = (fireState?.fires ?? [])
             .filter((fire) => Number.isFinite(fire.lat) && Number.isFinite(fire.lon))
-            .map((fire) => {
+            .flatMap((fire) => {
               const state = fireStateRef.current[fire.id];
               const animState = state ? {
                   seed: state.seed,
@@ -736,7 +808,7 @@ export function MapPanel({
                   windDeg ?? 270,
                 );
 
-              return createFireSpreadFeature(fire, {
+              return createFireSpreadFeatures(fire, {
                 time: ts / 1000,
                 windMph: windMph ?? 10,
                 windDeg: windDeg ?? 270,
@@ -1269,9 +1341,9 @@ function generateWindGrowthVectors(num: number, windSpeed: number, windDirection
 
 function getIntensityMultiplier(risk: string) {
   switch (risk) {
-    case 'critical': return 1.3;
-    case 'high': return 1.15;
-    case 'medium': return 0.95;
+    case "critical": return 1.3;
+    case "high": return 1.15;
+    case "medium": return 0.95;
     default: return 0.8;
   }
 }
@@ -1282,12 +1354,16 @@ function getBaseRadiusMeters(fire: FireOpsState["fires"][number] & { acres?: num
     return Math.sqrt((fire.acres * 4046.86) / Math.PI);
   }
   const intensityMultiplier = getIntensityMultiplier(fire.risk_level);
-  
-  // Use a deterministic seed from the ID to avoid per-frame jitter
-  const idSeed = typeof fire.id === 'string' 
-    ? fire.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) 
+
+  if (Number.isFinite(fire.estimated_radius) && fire.estimated_radius > 0) {
+    return Math.max(450, Math.min(9500, fire.estimated_radius)) * intensityMultiplier;
+  }
+
+  // Use a deterministic seed from the ID to avoid per-frame jitter.
+  const idSeed = typeof fire.id === "string"
+    ? fire.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)
     : Number(fire.id || 0);
-    
+
   const base = 250 + (idSeed % 100);
   return base * intensityMultiplier;
 }
@@ -1311,7 +1387,7 @@ function multiNoise(x: number, y: number, seed: number, octaves = 4) {
   return value / max;
 }
 
-function createFireSpreadFeature(
+function createFireSpreadFeatures(
   fire: FireOpsState["fires"][number],
   options: {
     time: number;
@@ -1321,31 +1397,82 @@ function createFireSpreadFeature(
     selected?: boolean;
     elapsedTime?: number;
   },
-): GeoJSON.Feature<GeoJSON.Polygon> {
+): GeoJSON.Feature[] {
   const radiusMeters = getBaseRadiusMeters(fire);
-  const intensity = 0.65 + 0.08 * Math.abs(Math.sin(options.time * 0.4 + options.state.seed));
+  const spreadPulse = (Math.sin(options.time * 0.42 + options.state.seed) + 1) / 2;
+  const windRadians = ((options.windDeg + 180) % 360) * (Math.PI / 180);
+  const windInfluence = Math.min(Math.max(options.windMph, 0) / 35, 1);
+  const growthPressure =
+    Math.min(Math.max(fire.growth_rate, 0), 65) / 65 * 0.16 +
+    (fire.risk_level === "critical" ? 0.16 : fire.risk_level === "high" ? 0.1 : 0.04);
+  const containmentDamping = 1 - Math.min(Math.max(fire.containment, 0), 95) / 180;
+  const liveSpread = (0.06 + growthPressure) * containmentDamping;
+  const center: [number, number] = [fire.lon, fire.lat];
 
-  return {
-    type: "Feature" as const,
-    properties: {
-      id: fire.id,
-      name: fire.name,
-      risk: fire.risk_level,
-      intensity,
-      containment: fire.containment,
-      selected: options.selected ?? false,
+  const shared = {
+    id: fire.id,
+    name: fire.name,
+    risk: fire.risk_level,
+    containment: fire.containment,
+    selected: options.selected ?? false,
+    spreadPulse,
+  };
+
+  const coreRing = generateFireRing(center, radiusMeters * 0.58, {
+    seed: options.state.seed + 11,
+    time: options.time * 0.45,
+    growthVectors: options.state.growthVectors,
+    elapsedTime: options.elapsedTime ?? 100,
+    windRadians,
+    windInfluence: windInfluence * 0.4,
+    spreadPulse,
+    liveSpread: liveSpread * 0.4,
+  });
+  const activeRing = generateFireRing(center, radiusMeters * (0.94 + spreadPulse * liveSpread), {
+    seed: options.state.seed,
+    time: options.time,
+    growthVectors: options.state.growthVectors,
+    elapsedTime: options.elapsedTime ?? 100,
+    windRadians,
+    windInfluence,
+    spreadPulse,
+    liveSpread,
+  });
+  const projectedRing = generateFireRing(center, radiusMeters * (1.12 + spreadPulse * liveSpread * 1.8), {
+    seed: options.state.seed + 37,
+    time: options.time * 0.72,
+    growthVectors: options.state.growthVectors,
+    elapsedTime: options.elapsedTime ?? 100,
+    windRadians,
+    windInfluence: Math.min(1, windInfluence + 0.2),
+    spreadPulse,
+    liveSpread: liveSpread * 1.8,
+  });
+
+  return [
+    polygonFeature({ ...shared, phase: "projected", radiusMeters }, projectedRing),
+    polygonFeature({ ...shared, phase: "active", radiusMeters }, activeRing),
+    polygonFeature({ ...shared, phase: "core", radiusMeters }, coreRing),
+    ...generateEmberSpotFeatures(fire, {
+      center,
       radiusMeters,
-    },
+      seed: options.state.seed,
+      time: options.time,
+      windRadians,
+      windInfluence,
+      spreadPulse,
+      liveSpread,
+    }),
+  ];
+}
+
+function polygonFeature(properties: GeoJSON.GeoJsonProperties, ring: [number, number][]): GeoJSON.Feature<GeoJSON.Polygon> {
+  return {
+    type: "Feature",
+    properties,
     geometry: {
-      type: "Polygon" as const,
-      coordinates: [
-        generateFireRing([fire.lon, fire.lat], radiusMeters, {
-          seed: options.state.seed,
-          time: options.time,
-          growthVectors: options.state.growthVectors,
-          elapsedTime: options.elapsedTime ?? 100, // Default to stable if not provided
-        }),
-      ],
+      type: "Polygon",
+      coordinates: [ring],
     },
   };
 }
@@ -1358,11 +1485,19 @@ function generateFireRing(
     time,
     growthVectors,
     elapsedTime = 100,
+    windRadians = 0,
+    windInfluence = 0,
+    spreadPulse = 0,
+    liveSpread = 0.08,
   }: {
     seed: number;
     time: number;
     growthVectors: number[];
     elapsedTime?: number;
+    windRadians?: number;
+    windInfluence?: number;
+    spreadPulse?: number;
+    liveSpread?: number;
   },
 ) {
   const coords: [number, number][] = [];
@@ -1378,7 +1513,7 @@ function generateFireRing(
     const vectorIndex = Math.floor((i / points) * growthVectors.length);
     const growthVector = growthVectors[vectorIndex] ?? 1.0;
     
-    // Stable organic variation from noise
+    // Stable organic variation from noise.
     const noiseValue = multiNoise(
       Math.cos(angle) * 2,
       Math.sin(angle) * 2,
@@ -1386,11 +1521,15 @@ function generateFireRing(
       4
     );
     
-    // Subtle breathing effect
-    const subtleMovement = 1 + Math.sin(angle * 3 + time * 0.2 + seed) * 0.01;
-    
+    // The leading edge elongates downwind so the perimeter looks like it is actually moving.
+    const windAlignment = Math.max(0, Math.cos(angle - windRadians));
+    const flankAlignment = Math.max(0, Math.cos(angle - windRadians - Math.PI / 2) * Math.cos(angle - windRadians - Math.PI / 2));
+    const windPush = 1 + windAlignment * windInfluence * (0.18 + spreadPulse * liveSpread * 2.4);
+    const flankCurl = 1 + flankAlignment * windInfluence * 0.06 * Math.sin(time * 0.8 + seed);
+    const subtleMovement = 1 + Math.sin(angle * 3 + time * 0.75 + seed) * 0.025;
+
     const irregularity = 0.8 + (noiseValue * 0.4 * 0.8);
-    const effectiveRadius = radiusMeters * emergenceFactor * growthVector * irregularity * subtleMovement;
+    const effectiveRadius = radiusMeters * emergenceFactor * growthVector * irregularity * subtleMovement * windPush * flankCurl;
 
     const dx = Math.cos(angle) * effectiveRadius;
     const dy = Math.sin(angle) * effectiveRadius;
@@ -1402,6 +1541,58 @@ function generateFireRing(
 
   if (coords.length) coords.push(coords[0]);
   return coords;
+}
+
+function generateEmberSpotFeatures(
+  fire: FireOpsState["fires"][number],
+  options: {
+    center: [number, number];
+    radiusMeters: number;
+    seed: number;
+    time: number;
+    windRadians: number;
+    windInfluence: number;
+    spreadPulse: number;
+    liveSpread: number;
+  },
+): GeoJSON.Feature<GeoJSON.Point>[] {
+  const count = fire.risk_level === "critical" ? 7 : fire.risk_level === "high" ? 5 : 3;
+  const latRadians = (options.center[1] * Math.PI) / 180;
+  const cosLat = Math.max(0.15, Math.cos(latRadians));
+  const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const localSeed = options.seed + i * 13.7;
+    const flicker = (Math.sin(options.time * (0.7 + i * 0.09) + localSeed) + 1) / 2;
+    const lateral = (noise(i, localSeed, options.seed) - 0.5) * 0.9;
+    const distance =
+      options.radiusMeters *
+      (1.05 + options.windInfluence * 0.6 + options.spreadPulse * options.liveSpread * 2.8 + i * 0.08 + flicker * 0.16);
+    const angle = options.windRadians + lateral;
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance;
+
+    features.push({
+      type: "Feature",
+      properties: {
+        id: `${fire.id}-ember-${i}`,
+        parentId: fire.id,
+        name: `${fire.name} spot fire`,
+        phase: "ember",
+        spreadPulse: options.spreadPulse,
+        spotIntensity: Math.max(0.2, Math.min(1, flicker + options.windInfluence * 0.35)),
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [
+          options.center[0] + dx / (METERS_PER_DEGREE_LAT * cosLat),
+          options.center[1] + dy / METERS_PER_DEGREE_LAT,
+        ],
+      },
+    });
+  }
+
+  return features;
 }
 
 function normalizeRing(input: unknown): [number, number][] | null {

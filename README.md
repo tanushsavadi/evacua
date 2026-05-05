@@ -59,9 +59,9 @@ and evacuation-zone recommendations. Set `EVACUA_DEMO_MODE=true` to force that
 demo data even when Supabase is configured, or `EVACUA_DEMO_MODE=false` to make
 missing Supabase config fail loudly.
 
-`NEXT_PUBLIC_MAPBOX_TOKEN` is recommended for production. The bundled public
-demo token is used only when curated demo mode is active, so production builds
-should provide their own Mapbox token.
+`NEXT_PUBLIC_MAPBOX_TOKEN` is recommended for production. The app does not ship
+a bundled Mapbox token, so local demos need a token in the environment for the
+3D responder map to render.
 
 Alerts are dry-run by default. Even when Telegram or webhook keys exist,
 `/api/send-emergency-alert` prepares the alert draft without sending it unless

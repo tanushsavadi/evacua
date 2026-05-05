@@ -166,27 +166,27 @@ const DEMO_MODE_SETTING =
 const DEMO_FIRESTATIONS: SupabaseFirestation[] = [
   {
     id: 1,
-    name: "Station 1",
-    city: "San Francisco",
-    county: "San Francisco",
-    lat: 37.7749,
-    lon: -122.4194,
+    name: "Madera County Station 8",
+    city: "Oakhurst",
+    county: "Madera",
+    lat: 37.3282,
+    lon: -119.6493,
   },
   {
     id: 2,
-    name: "Station 2",
-    city: "Los Angeles",
-    county: "Los Angeles",
-    lat: 34.0522,
-    lon: -118.2437,
+    name: "Redwood Valley Station 54",
+    city: "Redwood Valley",
+    county: "Mendocino",
+    lat: 39.2864,
+    lon: -123.2028,
   },
   {
     id: 3,
-    name: "Station 3",
-    city: "San Diego",
-    county: "San Diego",
-    lat: 32.7157,
-    lon: -117.1611,
+    name: "Fresno-Kings Staging",
+    city: "Fresno",
+    county: "Fresno",
+    lat: 36.7477,
+    lon: -119.7724,
   },
 ];
 
@@ -351,18 +351,6 @@ function demoIncidents(): SupabaseIncident[] {
       last_update: demoIso(4),
       description: "Active perimeter expansion near mixed woodland and rural road corridors.",
     },
-    {
-      id: "demo-test-fire",
-      name: "Test Fire",
-      status: "active",
-      risk: "high",
-      lat: 37.7749,
-      lon: -122.4194,
-      containment: 15,
-      start_time: demoIso(70),
-      last_update: demoIso(8),
-      description: "Test description",
-    },
   ];
 }
 
@@ -380,6 +368,22 @@ function demoRespondersOnScene(): Array<Pick<SupabaseResponder, "incident_id" | 
   return [...base, ...dispatched];
 }
 
+function isOperationalIncident(incident: SupabaseIncident) {
+  const id = String(incident.id ?? "").toLowerCase();
+  const name = (incident.name ?? "").trim().toLowerCase();
+  const description = (incident.description ?? "").trim().toLowerCase();
+  const lat = n(incident.lat, Number.NaN);
+  const lon = n(incident.lon, Number.NaN);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+    return false;
+  }
+
+  if (!name) return false;
+  if (id.includes("demo-test") || description === "test description") return false;
+  return !/\b(test|mock|sample|dummy)\b/.test(name);
+}
+
 function buildFireStateSnapshot(
   incidents: SupabaseIncident[],
   firestations: SupabaseFirestation[],
@@ -394,7 +398,7 @@ function buildFireStateSnapshot(
     );
   }
 
-  const fires = incidents.map((incident) => {
+  const fires = incidents.filter(isOperationalIncident).map((incident) => {
     const risk = incident.risk ?? "medium";
     const startTime = Date.parse(incident.start_time ?? incident.last_update ?? "");
     const elapsedMinutes = Number.isFinite(startTime)
@@ -912,6 +916,9 @@ export async function listRecentRouteUpdates(windowMs = 5 * 60_000): Promise<Rou
 
 export async function createRouteUpdate(input: {
   station_id: number;
+  station_name?: string;
+  fire_id?: string;
+  fire_name?: string;
   original_route?: unknown;
   new_route: unknown;
   reason?: string;
@@ -921,6 +928,9 @@ export async function createRouteUpdate(input: {
     const route = {
       id: nextDemoId("demo-route"),
       station_id: input.station_id,
+      station_name: input.station_name,
+      fire_id: input.fire_id,
+      fire_name: input.fire_name,
       original_route: input.original_route ?? null,
       new_route: input.new_route,
       reason: input.reason ?? "Demo route adjustment",
@@ -939,6 +949,9 @@ export async function createRouteUpdate(input: {
       headers: { prefer: "return=representation" },
       body: JSON.stringify({
         station_id: input.station_id,
+        station_name: input.station_name,
+        fire_id: input.fire_id,
+        fire_name: input.fire_name,
         original_route: input.original_route ?? null,
         new_route: input.new_route,
         reason: input.reason ?? "AI-recommended route adjustment",
@@ -1029,12 +1042,42 @@ function calculateEvacuationPolygon(fire: FireStateIncident) {
   return circularPolygon(fire.lat, fire.lon, fire.estimated_radius + 2000, 16);
 }
 
-export async function runAutonomousFireAgent(
+function buildRouteRecommendation(args: {
+  station: FireStateSnapshot["firestations"][number];
+  fire: FireStateIncident;
+  reason: string;
+  score: number;
+}) {
+  return {
+    id: `prepared-route-${args.fire.id}-${args.station.id}`,
+    station_id: args.station.id,
+    station_name: args.station.name,
+    fire_id: args.fire.id,
+    fire_name: args.fire.name,
+    original_route: null,
+    new_route: calculateAlternativeRoute(args.station, args.fire),
+    reason: args.reason,
+    risk_score: args.score,
+    created_at: new Date().toISOString(),
+  } satisfies RouteOpsSnapshot["routes"][number];
+}
+
+function buildEvacuationRecommendation(fire: FireStateIncident) {
+  return {
+    id: `prepared-evac-${fire.id}`,
+    fire_id: fire.id,
+    zone_name: `${fire.name} Evacuation Zone`,
+    polygon: calculateEvacuationPolygon(fire),
+    recommended_at: new Date().toISOString(),
+  } satisfies RouteOpsSnapshot["evacuations"][number];
+}
+
+export async function analyzeFireAgent(
   fireState: FireStateSnapshot,
 ): Promise<AgentOpsSnapshot> {
   const findings: AgentOpsSnapshot["findings"] = [];
-  const createdRouteUpdates: RouteOpsSnapshot["routes"] = [];
-  const createdEvacuations: RouteOpsSnapshot["evacuations"] = [];
+  const preparedRouteUpdates: RouteOpsSnapshot["routes"] = [];
+  const preparedEvacuations: RouteOpsSnapshot["evacuations"] = [];
   const recent = await listRecentRouteUpdates(60 * 60_000);
 
   for (const fire of fireState.fires) {
@@ -1065,27 +1108,23 @@ export async function runAutonomousFireAgent(
       });
 
       const duplicateRoute = recent.routes.some(
-        (route) => route.station_id === station.id && route.reason === reason,
+        (route) =>
+          route.station_id === station.id &&
+          (route.reason === reason || route.fire_id === fire.id || route.fire_name === fire.name),
       );
       if (!duplicateRoute) {
-        const route = await createRouteUpdate({
-          station_id: station.id,
-          new_route: calculateAlternativeRoute(station, fire),
+        preparedRouteUpdates.push(buildRouteRecommendation({
+          station,
+          fire,
           reason,
-          risk_score: score,
-        });
-        if (route) createdRouteUpdates.push(route);
+          score,
+        }));
       }
     }
 
     const duplicateZone = recent.evacuations.some((zone) => zone.fire_id === fire.id);
     if ((fire.risk_level === "critical" || fire.risk_level === "high") && !duplicateZone) {
-      const zone = await createEvacuationZone({
-        fire_id: fire.id,
-        zone_name: `${fire.name} Evacuation Zone`,
-        polygon: calculateEvacuationPolygon(fire),
-      });
-      if (zone) createdEvacuations.push(zone);
+      preparedEvacuations.push(buildEvacuationRecommendation(fire));
       findings.push({
         id: `${fire.id}-evacuation`,
         type: "evacuation_zone",
@@ -1103,6 +1142,43 @@ export async function runAutonomousFireAgent(
     firesAnalyzed: fireState.fires.length,
     stationsAnalyzed: fireState.firestations.length,
     findings,
+    createdRouteUpdates: preparedRouteUpdates,
+    createdEvacuations: preparedEvacuations,
+  };
+}
+
+export async function runAutonomousFireAgent(
+  fireState: FireStateSnapshot,
+): Promise<AgentOpsSnapshot> {
+  const analysis = await analyzeFireAgent(fireState);
+  const createdRouteUpdates: RouteOpsSnapshot["routes"] = [];
+  const createdEvacuations: RouteOpsSnapshot["evacuations"] = [];
+
+  for (const route of analysis.createdRouteUpdates) {
+    const committed = await createRouteUpdate({
+      station_id: route.station_id,
+      station_name: route.station_name,
+      fire_id: route.fire_id,
+      fire_name: route.fire_name,
+      original_route: route.original_route,
+      new_route: route.new_route,
+      reason: route.reason,
+      risk_score: route.risk_score,
+    });
+    if (committed) createdRouteUpdates.push(committed);
+  }
+
+  for (const zone of analysis.createdEvacuations) {
+    const committed = await createEvacuationZone({
+      fire_id: zone.fire_id,
+      zone_name: zone.zone_name ?? undefined,
+      polygon: zone.polygon,
+    });
+    if (committed) createdEvacuations.push(committed);
+  }
+
+  return {
+    ...analysis,
     createdRouteUpdates,
     createdEvacuations,
   };

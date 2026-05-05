@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { POST as briefingPost } from "@/app/api/evacua-briefing/route";
 import { POST as commanderPost } from "@/app/api/evacua-commander/route";
+import { buildAutonomousMission, type EvacuaAutonomousMission } from "@/lib/ops/autonomous-agent-tools";
 import { enqueueAgentMessage } from "@/lib/ops/agent-messages";
 import {
   createRun,
@@ -17,6 +18,8 @@ import {
   buildFireStateFromSupabase,
   getResponderStats,
   listRecentRouteUpdates,
+  analyzeFireAgent,
+  type AgentOpsSnapshot,
   type FireStateIncident,
   type RouteOpsSnapshot,
 } from "@/lib/ops/supabase-fire-ops";
@@ -47,6 +50,9 @@ const AgentRunRequestSchema = z.object({
     )
     .max(10)
     .optional(),
+  suppressAgentMessage: z.boolean().optional(),
+  emitProgressMessages: z.boolean().optional(),
+  clientRequestId: z.string().min(1).max(120).optional(),
 });
 
 const FindingSchema = z.object({
@@ -305,6 +311,7 @@ function buildIcs201Markdown(args: {
   briefing: EvacuaBriefingPayload;
   safetyReview: EvacuaSafetyReview;
   handoffs: OpusCommanderHandoff[];
+  autonomousMission?: EvacuaAutonomousMission;
 }) {
   const base = args.plan.incidentBriefMarkdown ?? args.briefing.incidentBriefMarkdown ?? buildIncidentBriefMarkdown(args.context);
   return [
@@ -317,6 +324,18 @@ function buildIcs201Markdown(args: {
     `- Communications: alert draft remains queued until operator approval.`,
     `- Safety: ${args.safetyReview.summary}`,
     ...args.safetyReview.flags.map((flag) => `  - ${flag}`),
+    ...(args.autonomousMission
+      ? [
+          "",
+          "## Autonomous Dispatch Workflow",
+          ...args.autonomousMission.dispatchWorkflow.map(
+            (step) => `- ${step.label}: ${step.status.replaceAll("_", " ")} - ${step.detail}`,
+          ),
+          "",
+          "## Operational Period Objectives",
+          ...args.autonomousMission.icsArtifacts.objectives.map((objective) => `- ${objective}`),
+        ]
+      : []),
   ].join("\n");
 }
 
@@ -333,11 +352,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid investigation request", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const [fireState, responderStats, routeOps] = await Promise.all([
+  const [fireState, responderStats] = await Promise.all([
     buildFireStateFromSupabase(),
     getResponderStats(),
-    listRecentRouteUpdates(60 * 60_000),
   ]);
+  let autonomousOps: AgentOpsSnapshot | null = null;
+  try {
+    autonomousOps = await analyzeFireAgent(fireState);
+  } catch (error) {
+    console.warn(
+      "Autonomous route scan unavailable; continuing with existing route context.",
+      error instanceof Error ? error.message : "",
+    );
+  }
+  const routeOps = await listRecentRouteUpdates(60 * 60_000);
   const selectedFire = selectCommanderIncident(fireState.fires, parsed.data.incidentId);
   if (!selectedFire) {
     return NextResponse.json(
@@ -355,6 +383,19 @@ export async function POST(req: Request) {
     incidentId: selectedFire.id,
     incidentName: selectedFire.name,
   });
+  const emitProgress = (message: string, data?: Record<string, unknown>) => {
+    if (!parsed.data.emitProgressMessages) return;
+    enqueueAgentMessage({
+      action: "scan",
+      message,
+      data: {
+        runId: run.runId,
+        incidentId: selectedFire.id,
+        clientRequestId: parsed.data.clientRequestId,
+        ...data,
+      },
+    });
+  };
 
   try {
     const context = buildCommanderContext({
@@ -363,20 +404,41 @@ export async function POST(req: Request) {
       routeOps,
       selectedFire,
     });
+    emitProgress(
+      `${selectedFire.name} selected. Fire state, responder coverage, route history, and active evacuation context are loaded.`,
+      { stage: "context_loaded" },
+    );
+    const briefingPromise = invokeRoute<EvacuaBriefingPayload>(briefingPost, "/api/evacua-briefing", {
+      incidentId: selectedFire.id,
+      operatorQuestion: objective,
+      recentTranscript: parsed.data.transcriptContext,
+      suppressAgentMessage: true,
+    }).then((briefing) => {
+      emitProgress("Incident briefing complete. I am merging risk, responder, route, and evacuation signals into the mission.", {
+        stage: "briefing_complete",
+      });
+      return briefing;
+    });
+    const planPromise = invokeRoute<Partial<OpusCommanderResponse>>(commanderPost, "/api/evacua-commander", {
+      incidentId: selectedFire.id,
+      mode: "recommend",
+      operatorIntent: objective,
+      suppressAgentMessage: true,
+    }).then((plan) => {
+      emitProgress("Commander plan complete. I am checking recommended actions against safety and approval gates.", {
+        stage: "commander_plan_complete",
+      });
+      return plan;
+    });
     const [briefing, plan] = await Promise.all([
-      invokeRoute<EvacuaBriefingPayload>(briefingPost, "/api/evacua-briefing", {
-        incidentId: selectedFire.id,
-        operatorQuestion: objective,
-        recentTranscript: parsed.data.transcriptContext,
-      }),
-      invokeRoute<Partial<OpusCommanderResponse>>(commanderPost, "/api/evacua-commander", {
-        incidentId: selectedFire.id,
-        mode: "recommend",
-        operatorIntent: objective,
-      }),
+      briefingPromise,
+      planPromise,
     ]);
 
     const deterministicSafety = fallbackSafetyReview(plan, context);
+    emitProgress("Running role synthesis now: operations, planning, logistics, communications, and safety review.", {
+      stage: "role_synthesis_started",
+    });
     const roleSynthesis = await runHiddenRoleSynthesis({
       context,
       briefing,
@@ -387,14 +449,42 @@ export async function POST(req: Request) {
     const safetyReview = roleSynthesis?.safetyReview ?? deterministicSafety;
     const handoffs = plan.agentHandoffs ?? [];
     const findings = roleSynthesis?.findings ?? fallbackFindings(plan, context, safetyReview);
+    emitProgress("Safety review complete. I am assembling the dispatch workflow, approval queue, and Mission Control artifacts.", {
+      stage: "safety_review_complete",
+    });
+    const autonomousMission = buildAutonomousMission({
+      fireState,
+      responderStats,
+      routeOps,
+      selectedFire,
+      plan,
+      agentOps: autonomousOps,
+    });
     const trace: OpusCommanderTraceStep[] = [
       ...run.trace,
+      {
+        step: "Triaged active incidents",
+        status: "complete",
+        detail: autonomousMission.summary,
+      },
+      {
+        step: "Ran autonomous route scan",
+        status: autonomousOps ? "complete" : "skipped",
+        detail: autonomousOps
+          ? `${autonomousOps.findings.length} route or evacuation finding(s); ${autonomousOps.createdRouteUpdates.length} route update(s), ${autonomousOps.createdEvacuations.length} evacuation zone(s) prepared.`
+          : "Autonomous route scan was unavailable; existing route state was used.",
+      },
       ...(briefing.toolTrace ?? []),
       ...(plan.toolTrace ?? []),
       {
         step: "Synthesized role handoffs",
         status: "complete",
         detail: "Incident, logistics, communications, and safety reviewer passes were merged into one operator run.",
+      },
+      {
+        step: "Prepared dispatch workflow",
+        status: "complete",
+        detail: autonomousMission.dispatchWorkflow.map((step) => `${step.label}: ${step.status}`).join("; "),
       },
       {
         step: "Safety-reviewed actions",
@@ -416,6 +506,12 @@ export async function POST(req: Request) {
       handoffs,
       safetyReview,
       digitalTwin: digitalTwinReplay(plan, context),
+      autonomousMission,
+      incidentTriage: autonomousMission.triage,
+      tasks: autonomousMission.tasks,
+      dispatchWorkflow: autonomousMission.dispatchWorkflow,
+      icsArtifacts: autonomousMission.icsArtifacts,
+      approvalQueue: autonomousMission.approvalQueue,
       alertDraft: plan.alertDraft ?? context.alertDraft,
       incidentBriefMarkdown: buildIcs201Markdown({
         context,
@@ -423,19 +519,22 @@ export async function POST(req: Request) {
         briefing,
         safetyReview,
         handoffs,
+        autonomousMission,
       }),
     };
 
     saveRun(completeRun);
-    enqueueAgentMessage({
-      action: "scan",
-      message: `Evacua intelligence run ready for ${selectedFire.name}. Review the approval-gated actions.`,
-      data: {
-        runId: completeRun.runId,
-        incidentId: completeRun.incidentId,
-        riskLevel: completeRun.riskLevel,
-      },
-    });
+    if (!parsed.data.suppressAgentMessage) {
+      enqueueAgentMessage({
+        action: "scan",
+        message: autonomousMission.spokenUpdate,
+        data: {
+          runId: completeRun.runId,
+          incidentId: completeRun.incidentId,
+          riskLevel: completeRun.riskLevel,
+        },
+      });
+    }
 
     return NextResponse.json(completeRun);
   } catch (error) {

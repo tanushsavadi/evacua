@@ -45,6 +45,7 @@ const BriefingRequestSchema = z.object({
     )
     .max(8)
     .optional(),
+  suppressAgentMessage: z.boolean().optional(),
 });
 
 const BriefingOutputSchema = z.object({
@@ -211,7 +212,7 @@ function fallbackBriefing(context: OpusCommanderContext): BriefingOutput {
   ].join(" ");
   return {
     brief,
-    spokenBrief: `${context.selectedFire.name} is ${context.riskLevel}. Watch containment, route changes, and whether dispatch or alert approval is needed next.`,
+    spokenBrief: `${context.selectedFire.name} is in ${riskPosture} posture. Watch containment, route changes, and whether dispatch or alert approval is needed next.`,
     operatorChecklist: [
       `Confirm ${context.selectedFire.name} still warrants ${riskPosture} posture before acting.`,
       routeCount > 0
@@ -403,15 +404,17 @@ export async function POST(req: Request) {
       });
     }
 
-    enqueueAgentMessage({
-      action: "scan",
-      message: output.spokenBrief,
-      data: {
-        incidentId: selectedFire.id,
-        confidence: output.confidence,
-        checklist: output.operatorChecklist,
-      },
-    });
+    if (!parsed.data.suppressAgentMessage) {
+      enqueueAgentMessage({
+        action: "scan",
+        message: output.spokenBrief,
+        data: {
+          incidentId: selectedFire.id,
+          confidence: output.confidence,
+          checklist: output.operatorChecklist,
+        },
+      });
+    }
 
     return NextResponse.json({
       ...output,

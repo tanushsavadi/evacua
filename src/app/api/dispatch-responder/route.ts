@@ -4,6 +4,11 @@ import {
   dispatchResponder,
   getResponderStats,
 } from "@/lib/ops/supabase-fire-ops";
+import {
+  approvalErrorResponse,
+  markApprovedActionExecuted,
+  validateLiveActionApproval,
+} from "@/lib/voice-agent/approval";
 
 export const runtime = "nodejs";
 
@@ -11,6 +16,9 @@ type DispatchBody = {
   incidentId?: string;
   incidentLat?: number;
   incidentLon?: number;
+  suppressAgentMessage?: boolean;
+  pendingActionId?: string;
+  approvalToken?: string;
 };
 
 export async function POST(req: Request) {
@@ -33,6 +41,9 @@ export async function POST(req: Request) {
   }
 
   try {
+    const approval = await validateLiveActionApproval(body, ["dispatch"]);
+    if (!approval.ok) return approvalErrorResponse(approval.error);
+
     const result = await dispatchResponder({
       incidentId: body.incidentId,
       incidentLat: Number(body.incidentLat),
@@ -46,14 +57,19 @@ export async function POST(req: Request) {
       );
     }
 
-    enqueueAgentMessage({
-      action: "dispatch",
-      message: `Team ${result.responder.team_number} dispatched from ${result.responder.firestation_name}.`,
-      data: result,
-    });
+    if (!body.suppressAgentMessage) {
+      enqueueAgentMessage({
+        action: "dispatch",
+        message: `Team ${result.responder.team_number} dispatched from ${result.responder.firestation_name}.`,
+        data: result,
+      });
+    }
+
+    await markApprovedActionExecuted(body.pendingActionId);
 
     return NextResponse.json({
       success: true,
+      approvalMode: approval.mode,
       ...result,
     });
   } catch (error) {

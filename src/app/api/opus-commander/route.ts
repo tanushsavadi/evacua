@@ -141,16 +141,18 @@ export async function POST(req: Request) {
           },
         ],
       });
-      enqueueAgentMessage({
-        action: "scan",
-        message: `Evacua prepared an incident plan for ${selectedFire.name}. Review the approval-gated actions before dispatch or public alerting.`,
-        data: {
-          runId: fallback.runId,
-          model: fallback.model,
-          incidentId: fallback.incidentId,
-          riskLevel: fallback.riskLevel,
-        },
-      });
+      if (!body.suppressAgentMessage) {
+        enqueueAgentMessage({
+          action: "scan",
+          message: `Evacua prepared an incident plan for ${selectedFire.name}. Review the approval-gated actions before dispatch or public alerting.`,
+          data: {
+            runId: fallback.runId,
+            model: fallback.model,
+            incidentId: fallback.incidentId,
+            riskLevel: fallback.riskLevel,
+          },
+        });
+      }
       return NextResponse.json(fallback);
     }
 
@@ -179,16 +181,18 @@ export async function POST(req: Request) {
         : null;
 
       if (plan) {
-        enqueueAgentMessage({
-          action: "scan",
-          message: `Evacua incident plan ready for ${selectedFire.name}: ${plan.riskLevel}.`,
-          data: {
-            runId: plan.runId,
-            model: plan.model,
-            incidentId: plan.incidentId,
-            riskLevel: plan.riskLevel,
-          },
-        });
+        if (!body.suppressAgentMessage) {
+          enqueueAgentMessage({
+            action: "scan",
+            message: `Evacua incident plan ready for ${selectedFire.name}: ${plan.riskLevel}.`,
+            data: {
+              runId: plan.runId,
+              model: plan.model,
+              incidentId: plan.incidentId,
+              riskLevel: plan.riskLevel,
+            },
+          });
+        }
         return NextResponse.json(plan);
       }
 

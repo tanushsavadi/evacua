@@ -15,7 +15,7 @@ export async function GET() {
   const mapboxSource = present(process.env.NEXT_PUBLIC_MAPBOX_TOKEN)
     ? "env"
     : demoMode
-      ? "demo-fallback"
+      ? "calhacks-fallback"
       : "missing";
   const telegramMode = process.env.EVACUA_ALERT_MODE === "live" ? "live" : "dry-run";
 

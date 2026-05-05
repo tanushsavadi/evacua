@@ -4,6 +4,14 @@ import type {
   OpusCommanderRiskLevel,
   OpusCommanderTraceStep,
 } from "@/lib/opus-commander";
+import type {
+  EvacuaAgentTask,
+  EvacuaApprovalQueueItem,
+  EvacuaAutonomousMission,
+  EvacuaDispatchWorkflowStep,
+  EvacuaIcsArtifacts,
+  EvacuaIncidentTriageItem,
+} from "@/lib/ops/autonomous-agent-tools";
 
 export type EvacuaAgentFinding = {
   role: "incident_analyst" | "logistics_analyst" | "comms_analyst" | "safety_reviewer";
@@ -53,6 +61,12 @@ export type EvacuaAgentRun = {
   handoffs: OpusCommanderHandoff[];
   safetyReview: EvacuaSafetyReview;
   digitalTwin: EvacuaDigitalTwinReplay;
+  autonomousMission?: EvacuaAutonomousMission;
+  incidentTriage?: EvacuaIncidentTriageItem[];
+  tasks?: EvacuaAgentTask[];
+  dispatchWorkflow?: EvacuaDispatchWorkflowStep[];
+  icsArtifacts?: EvacuaIcsArtifacts;
+  approvalQueue?: EvacuaApprovalQueueItem[];
   alertDraft?: string;
   incidentBriefMarkdown?: string;
   error?: string;

@@ -22,11 +22,6 @@ export const FIRE_VIDEOS: Record<string, FireVideo> = {
     name: 'Redwood Valley Fire', 
     videoUrl: '/videos/redwood-valley-fire.mp4',
     description: 'Live footage from Redwood Valley Fire operations'
-  },
-  'Test Fire': {
-    name: 'Test Fire',
-    videoUrl: '/videos/pine-ridge-fire.mp4',
-    description: 'Simulation environment test feed'
   }
 };
 
