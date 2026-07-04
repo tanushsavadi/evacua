@@ -1087,7 +1087,7 @@ export function MapPanel({
               <div className="mx-auto mb-3 h-1.5 w-20 rounded-full bg-cyan/60" />
               <p className="text-sm font-semibold text-white">Map source unavailable</p>
               <p className="mt-2 text-xs leading-relaxed text-text-muted">
-                Set NEXT_PUBLIC_MAPBOX_TOKEN, or run demo mode with EVACUA_DEMO_MODE=true to use the bundled demo map token.
+                Set NEXT_PUBLIC_MAPBOX_TOKEN in .env.local to enable the 3D responder map. All other panels stay live without it.
               </p>
             </div>
           </div>

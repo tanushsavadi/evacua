@@ -38,7 +38,7 @@ import { OpsMetric, OpsShellHeader, OpsStatusPill } from "@/components/command-c
 import { useVapi, type VapiMessage } from "@/hooks/use-vapi";
 import { useWeather, type WeatherData } from "@/hooks/use-weather";
 import IncidentsList from "@/components/incidents-list";
-import type { FireIncident } from "@/lib/composio-telegram-service";
+import type { FireIncident } from "@/lib/schemas/incident";
 import { useFireOps, type FireStateResponse, type ResponderStatsResponse } from "@/lib/hooks/use-fire-ops";
 import type { LatLng } from "@/lib/geo/types";
 import type {
@@ -1079,6 +1079,12 @@ export default function Dashboard() {
 
   return (
     <div className="evacua-shell evacua-noise relative min-h-[100dvh] overflow-hidden bg-[var(--color-bg-oled)] text-[var(--color-text-primary)]">
+      <a
+        href="#evacua-command-surface"
+        className="sr-only z-50 rounded-lg border border-[var(--color-cyan)]/40 bg-black px-4 py-2 text-sm text-[var(--color-cyan)] focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
+      >
+        Skip to command surface
+      </a>
       <OpsShellHeader
         subtitle={selectedIncident?.name ?? "California wildfire operations"}
         metrics={
@@ -1098,6 +1104,7 @@ export default function Dashboard() {
               className="h-10"
               onClick={handleJudgeDemo}
               disabled={demoRunning || assistantPlanLoading || briefLoading}
+              aria-busy={demoRunning}
             >
               {demoRunning ? (
                 <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
@@ -1111,8 +1118,8 @@ export default function Dashboard() {
         }
       />
 
-      <main className="relative z-10 grid gap-3 p-3 lg:h-[calc(100dvh-73px)] lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_minmax(320px,390px)] lg:overflow-hidden md:p-4">
-        <section className="flex min-h-0 flex-col gap-3">
+      <main id="evacua-command-surface" className="relative z-10 grid gap-3 p-3 lg:h-[calc(100dvh-73px)] lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_minmax(320px,390px)] lg:overflow-hidden md:p-4">
+        <section aria-label="Incidents and responders" className="flex min-h-0 flex-col gap-3">
           <Card className="evacua-panel flex min-h-[360px] flex-1 flex-col overflow-hidden">
             <CardHeader className="border-b border-white/[0.07]">
               <PanelHeading icon={Radio} label="Incident feed" value={`${incidentCount} live`} />
@@ -1139,7 +1146,7 @@ export default function Dashboard() {
           />
         </section>
 
-        <section className="relative min-h-[560px] overflow-hidden rounded-lg border border-white/[0.08] bg-black shadow-[0_30px_120px_-70px_rgba(0,0,0,1)] lg:min-h-0">
+        <section aria-label="Operations map" className="relative min-h-[560px] overflow-hidden rounded-lg border border-white/[0.08] bg-black shadow-[0_30px_120px_-70px_rgba(0,0,0,1)] lg:min-h-0">
           <MapPanel
             home={opsCenter}
             fireState={fireState}
@@ -1177,7 +1184,7 @@ export default function Dashboard() {
           />
         </section>
 
-        <section className="flex min-h-0 flex-col gap-3 overflow-y-auto pb-4 pr-1">
+        <section aria-label="Evacua assistant and mission control" className="flex min-h-0 flex-col gap-3 overflow-y-auto pb-4 pr-1">
           <AssistantPanel
             isSessionActive={isSessionActive}
             isSpeaking={isSpeaking}
@@ -1210,7 +1217,6 @@ export default function Dashboard() {
           />
 
           <EnvironmentalPanel
-            selectedIncident={selectedIncident}
             weather={weather}
             loading={weatherLoading}
             activeFire={activeFire}
@@ -1346,6 +1352,7 @@ function DispatchMissionCard({ mission }: { mission: DispatchMission }) {
             </div>
             <Progress
               value={progress}
+              label={`Dispatch progress ${Math.round(progress)}%`}
               className="h-1.5 bg-white/[0.06]"
               indicatorClassName={mission.status === "failed" ? "bg-[var(--color-red)]" : "bg-[var(--color-cyan)]"}
             />
@@ -1622,7 +1629,14 @@ function AssistantPanel({
                     <Textarea
                       value={prompt}
                       onChange={(event) => onPromptChange(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                          event.preventDefault();
+                          onSubmitPrompt();
+                        }
+                      }}
                       rows={1}
+                      aria-label="Command for Evacua"
                       className="min-h-10 resize-none border-transparent bg-transparent px-2 py-2 text-xs focus-visible:border-transparent focus-visible:ring-0"
                       placeholder={isSessionActive ? "Listening... or type a backup command" : "Type a command for Evacua..."}
                     />
@@ -1929,6 +1943,9 @@ function VoiceConversationSurface({
               onWheel={(event) => event.stopPropagation()}
               onTouchMove={(event) => event.stopPropagation()}
               tabIndex={0}
+              role="log"
+              aria-label="Evacua conversation transcript"
+              aria-live="polite"
             >
               {visibleMessages.length > 0 || isSessionActive || busy ? (
                 <div className="flex min-h-full flex-col justify-end gap-2">
@@ -3328,20 +3345,18 @@ function AssistantTrace({ trace }: { trace: OpusCommanderTraceStep[] }) {
 }
 
 function EnvironmentalPanel({
-  selectedIncident,
   weather,
   loading,
   activeFire,
 }: {
-  selectedIncident: FireIncident | null;
   weather: WeatherData | null;
   loading: boolean;
   activeFire: FireStateResponse["fires"][number] | null;
 }) {
-  const humidity = weather?.humidity ?? 0;
-  const temp = weather?.temp ?? 0;
-  const visibility = weather?.visibility ?? 6.4;
-  const aqi = weather?.airQuality?.aqi ?? (selectedIncident ? 142 : 0);
+  const humidity = weather?.humidity ?? null;
+  const temp = weather?.temp ?? null;
+  const visibility = weather?.visibility ?? null;
+  const aqi = weather?.airQuality?.aqi ?? null;
   const growth = activeFire?.growth_rate ?? 0;
 
   return (
@@ -3351,14 +3366,21 @@ function EnvironmentalPanel({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-2">
-          <WeatherStat icon={Thermometer} label="Temp" value={`${temp}F`} color={getTempColor(temp)} />
-          <WeatherStat icon={Wind} label="Wind" value={weather ? `${weather.wind.speed} ${weather.wind.direction}` : "0 mph"} color="#55b5d9" />
-          <WeatherStat icon={ShieldCheck} label="Humidity" value={`${humidity}%`} color={getHumidityColor(humidity)} />
-          <WeatherStat icon={Gauge} label="AQI" value={aqi ? getAqiLabel(aqi) : "Good"} color={getAqiColor(aqi)} />
+          <WeatherStat icon={Thermometer} label="Temp" value={temp == null ? "—" : `${temp}F`} color={temp == null ? "#8b93a7" : getTempColor(temp)} />
+          <WeatherStat icon={Wind} label="Wind" value={weather ? `${weather.wind.speed} ${weather.wind.direction}` : "—"} color="#55b5d9" />
+          <WeatherStat icon={ShieldCheck} label="Humidity" value={humidity == null ? "—" : `${humidity}%`} color={humidity == null ? "#8b93a7" : getHumidityColor(humidity)} />
+          <WeatherStat icon={Gauge} label="AQI" value={aqi == null ? "—" : getAqiLabel(aqi)} color={aqi == null ? "#8b93a7" : getAqiColor(aqi)} />
         </div>
 
-        <RiskBar label="Visibility" value={Math.min((visibility / 10) * 100, 100)} caption={getVisLabel(visibility)} color={getVisColor(visibility)} />
+        {visibility != null && (
+          <RiskBar label="Visibility" value={Math.min((visibility / 10) * 100, 100)} caption={getVisLabel(visibility)} color={getVisColor(visibility)} />
+        )}
         <RiskBar label="Fire growth" value={Math.min(growth * 4, 100)} caption={growth ? `${Math.round(growth)} m/min` : "Stable"} color={growth > 18 ? "#e25656" : "#ff9e3d"} />
+        {!weather && !loading && (
+          <p className="text-[10px] leading-relaxed text-[var(--color-text-muted)]">
+            Live weather feed unavailable. Readings resume automatically when the upstream reconnects.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -3407,7 +3429,7 @@ function RiskBar({
           {caption}
         </span>
       </div>
-      <Progress value={value} className="h-1.5" indicatorClassName="bg-[var(--risk-color)]" style={{ "--risk-color": color } as React.CSSProperties} />
+      <Progress value={value} label={`${label} ${Math.round(value)}%`} className="h-1.5" indicatorClassName="bg-[var(--risk-color)]" style={{ "--risk-color": color } as React.CSSProperties} />
     </div>
   );
 }
@@ -3460,6 +3482,7 @@ function StatusNotice({
 }) {
   return (
     <div
+      role="status"
       className={cn(
         "rounded-lg border px-3 py-2 text-xs font-medium",
         tone === "success"
