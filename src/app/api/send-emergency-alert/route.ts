@@ -206,23 +206,6 @@ export async function POST(req: Request) {
 
   const success = channelResults.some((c) => c.ok);
 
-  // Demo mode fallback: if no channels succeeded but we are in demo mode, return success.
-  const isDemo = !token || !chatId;
-  if (isDemo && !success) {
-    console.log("DEMO MODE: Emergency Alert Prepared");
-    console.log("-----------------------------------");
-    console.log(message);
-    console.log("-----------------------------------");
-    
-    return NextResponse.json({
-      success: true,
-      channel: "demo",
-      approvalMode: approval.mode,
-      message: "Demo Mode: Alert logged to console. (Set TELEGRAM_BOT_TOKEN to enable real alerts)",
-      composedText: message,
-    });
-  }
-
   if (success) await markApprovedActionExecuted(body.pendingActionId);
 
   return NextResponse.json(

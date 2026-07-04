@@ -8,15 +8,7 @@ function present(value: string | undefined) {
 }
 
 export async function GET() {
-  const demoMode =
-    process.env.EVACUA_DEMO_MODE === "true" ||
-    process.env.NEXT_PUBLIC_EVACUA_DEMO_MODE === "true" ||
-    getOpsDataMode() === "demo";
-  const mapboxSource = present(process.env.NEXT_PUBLIC_MAPBOX_TOKEN)
-    ? "env"
-    : demoMode
-      ? "calhacks-fallback"
-      : "missing";
+  const mapboxSource = present(process.env.NEXT_PUBLIC_MAPBOX_TOKEN) ? "env" : "missing";
   const telegramMode = process.env.EVACUA_ALERT_MODE === "live" ? "live" : "dry-run";
 
   return NextResponse.json({
@@ -30,7 +22,7 @@ export async function GET() {
       mapboxSource,
       demoReset: true,
       typecheckScript: "pnpm typecheck",
-      buildScript: "pnpm exec next build --webpack",
+      buildScript: "pnpm build",
     },
   });
 }

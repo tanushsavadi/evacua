@@ -37,9 +37,18 @@ const RequestSchema = z.object({
     .optional(),
   brief: z
     .object({
-      brief: z.string().max(1600).optional(),
-      spokenBrief: z.string().max(1000).optional(),
-      operatorChecklist: z.array(z.string().max(300)).max(5).optional(),
+      brief: z
+        .string()
+        .transform((value) => value.slice(0, 1600))
+        .optional(),
+      spokenBrief: z
+        .string()
+        .transform((value) => value.slice(0, 1000))
+        .optional(),
+      operatorChecklist: z
+        .array(z.string().transform((value) => value.slice(0, 300)))
+        .max(8)
+        .optional(),
       incidentName: z.string().optional(),
     })
     .nullable()
@@ -48,10 +57,13 @@ const RequestSchema = z.object({
     .array(
       z.object({
         role: z.enum(["user", "assistant"]).optional(),
-        content: z.string().max(500).optional(),
+        content: z
+          .string()
+          .transform((value) => value.slice(0, 500))
+          .optional(),
       }),
     )
-    .max(6)
+    .max(8)
     .optional(),
 });
 

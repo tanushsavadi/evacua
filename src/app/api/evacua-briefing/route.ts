@@ -273,7 +273,7 @@ async function runEvacuaToolLoop(args: {
   for (let i = 0; i < 5; i += 1) {
     const message = (await client.messages.create({
       model: OPUS_COMMANDER_MODEL,
-      max_tokens: 1800,
+      max_tokens: 4096,
       stream: false,
       tools: EVACUA_TOOLS,
       messages,
@@ -368,32 +368,44 @@ export async function POST(req: Request) {
 
     let output = fallbackBriefing(context);
     if (process.env.ANTHROPIC_API_KEY) {
-      const toolRun = await runEvacuaToolLoop({
-        context,
-        operatorQuestion: parsed.data.operatorQuestion,
-        recentTranscript: parsed.data.recentTranscript,
-      });
-      trace.push(...toolRun.trace);
-      const json = extractJsonObject(toolRun.text);
-      let parsedJson: unknown = null;
-      if (json) {
-        try {
-          parsedJson = JSON.parse(json);
-        } catch {
-          parsedJson = null;
+      try {
+        const toolRun = await runEvacuaToolLoop({
+          context,
+          operatorQuestion: parsed.data.operatorQuestion,
+          recentTranscript: parsed.data.recentTranscript,
+        });
+        trace.push(...toolRun.trace);
+        const json = extractJsonObject(toolRun.text);
+        let parsedJson: unknown = null;
+        if (json) {
+          try {
+            parsedJson = JSON.parse(json);
+          } catch {
+            parsedJson = null;
+          }
         }
-      }
-      const modelOutput = parsedJson ? BriefingOutputSchema.safeParse(parsedJson) : null;
-      if (modelOutput?.success) {
-        output = {
-          ...modelOutput.data,
-          incidentBriefMarkdown: modelOutput.data.incidentBriefMarkdown ?? buildIncidentBriefMarkdown(context),
-        };
-      } else {
+        const modelOutput = parsedJson ? BriefingOutputSchema.safeParse(parsedJson) : null;
+        if (modelOutput?.success) {
+          output = {
+            ...modelOutput.data,
+            incidentBriefMarkdown: modelOutput.data.incidentBriefMarkdown ?? buildIncidentBriefMarkdown(context),
+          };
+        } else {
+          trace.push({
+            step: "Validated assistant synthesis",
+            status: "complete",
+            detail: "Assistant synthesis was normalized into Evacua's deterministic safety schema.",
+          });
+        }
+      } catch (error) {
+        console.warn(
+          "Evacua briefing synthesis unavailable; returning deterministic briefing.",
+          error instanceof Error ? error.message : "",
+        );
         trace.push({
-          step: "Validated assistant synthesis",
-          status: "complete",
-          detail: "Assistant synthesis was normalized into Evacua's deterministic safety schema.",
+          step: "Assistant synthesis",
+          status: "failed",
+          detail: "Live synthesis unavailable; returned deterministic safe briefing.",
         });
       }
     } else {

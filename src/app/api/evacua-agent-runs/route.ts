@@ -217,7 +217,7 @@ async function runHiddenRoleSynthesis(args: {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = (await client.messages.create({
       model: OPUS_COMMANDER_MODEL,
-      max_tokens: 1400,
+      max_tokens: 4096,
       stream: false,
       system: [
         "You are Evacua's hidden incident intelligence coordinator.",

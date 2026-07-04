@@ -43,7 +43,7 @@ async function callOpus(args: {
   const client = new Anthropic({ apiKey: args.apiKey });
   const message = await client.messages.create({
     model: args.model,
-    max_tokens: 1800,
+    max_tokens: 4096,
     stream: false,
     system: [
       "You are Evacua's internal strategic incident planner for wildfire responder operations.",

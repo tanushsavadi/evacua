@@ -82,7 +82,10 @@ export function deterministicClassifyOperatorIntent(
     };
   }
 
-  if (/\b(cancel voice|stop voice|stop listening|end call|goodbye|hang up)\b/i.test(text)) {
+  if (
+    /\b(cancel voice|stop voice|stop listening|end call|goodbye|hang up)\b/i.test(text) ||
+    /^\s*(please\s+)?(cancel|stop|never\s?mind)(\s+(that|it|this|everything))?\s*[.!]?\s*$/i.test(text)
+  ) {
     return {
       intent: "cancel",
       confidence: 0.95,
