@@ -1,15 +1,15 @@
 # Coding Agent Session: Hardening Evacua’s Re-planning Logic
 
 ## Why I’m proud of this session
-This session shows how I use Codex CLI with GStack as an engineering partner, not a code generator I blindly trust. We started with an ambitious AI product framing, inspected the actual repo, noticed a mismatch between the existing responder-command-center direction and my household-copilot framing, narrowed the task, and shipped a small deterministic evacuation plan revision engine with tests.
+This session shows how I use Codex CLI with GStack as an engineering partner, not a code generator I blindly trust. We started with an ambitious AI product framing, inspected the actual repo, noticed a mismatch between the existing responder-command-center direction and my household-copilot framing, narrowed the task, and implemented a small deterministic evacuation plan revision engine with tests.
 
 ## Editing note
-This transcript is cleaned for readability from the raw Codex CLI session log. I removed Codex system/developer prompts, encrypted/log metadata, repeated duplicate entries, long generated skill files, and lockfile noise. I preserved the actual user prompts, repo-inspection conclusions, implementation plan, implementation summary, review findings, QA report, and retro summary.
+This transcript is lightly cleaned from the raw Codex CLI session log for readability. I removed Codex system/developer prompts, encrypted/log metadata, repeated duplicate entries, long generated skill files, and lockfile noise. I preserved the actual user prompts, repo-inspection conclusions, implementation plan, implementation summary, review findings, QA report, and retro summary.
 
 ## Session summary
 We scoped a narrow product problem for Evacua: when wildfire conditions change, a household evacuation plan should update in a deterministic, explainable, and testable way.
 
-Early repo inspection found a mismatch: the current app is framed as a responder command center, while the proposed YC narrative was a household evacuation copilot. We treated that as a scoping signal, not something to hide. The session narrowed from “agentic wildfire copilot” to a pure TypeScript plan revision engine.
+Early repo inspection found a mismatch: the current app is framed as a responder command center, while the product direction I wanted to explore was a household evacuation copilot. We treated that as a scoping signal, not something to hide. The session narrowed from “agentic wildfire copilot” to a pure TypeScript plan revision engine.
 
 I pushed back on scope several times: no UI, no API route, no Supabase, no Mapbox, no alert sending, no LLM calls, and no claim that Evacua decides whether someone should evacuate. The implementation stayed focused on the smallest testable wedge.
 
@@ -44,11 +44,9 @@ Do not overclaim:
 ```text
 Load gstack. Use the gstack-office-hours skill.
 
-I want to create a coding-agent session that I can submit for a YC Startup School application.
-
 Project: Evacua, an agentic wildfire evacuation copilot for households.
 
-Before we code anything, help me scope the strongest possible session. The goal is not to build a huge new feature. The goal is to show excellent judgment with an AI coding agent: clear scoping, pushing back on ambiguity, repo inspection, implementation, tests, review, and QA.
+Before we code anything, help me scope this change before coding. The goal is not to build a huge new feature. The goal is to make a careful, well-scoped change with clear implementation, tests, review, and QA.
 
 The product problem I’m considering:
 When wildfire conditions change, Evacua should update the household’s evacuation plan in a deterministic, explainable, and testable way.
@@ -57,8 +55,7 @@ Please challenge the framing first:
 1. What is the actual user pain?
 2. What is the narrowest impressive wedge?
 3. What should we avoid building?
-4. What would make this transcript look strong to YC?
-5. What would make it look fake, overbuilt, or weak?
+4. What would make it look fake, overbuilt, or weak?
 
 Do not edit files yet.
 ```
@@ -67,16 +64,16 @@ Do not edit files yet.
 
 I’ll use the `office-hours` skill for the framing pass and keep this strictly pre-code. I’m going to read the skill instructions first, then I’ll inspect just enough repo context to make the scoping grounded rather than generic.
 
-The gstack preamble hit sandbox limits writing `~/.gstack`, but the useful read-only state came through: branch `yc-gstack-codex-session`, solo repo mode, no prior relevant session state.
+The gstack preamble hit sandbox limits writing `~/.gstack`, but the useful read-only state came through: the current working branch, solo repo mode, no prior relevant session state.
 
 This is a Next app with existing wildfire ops, voice-agent, alerts, signals, plan page, and API routes. I’m reading the README, package metadata, and likely plan/agent files to identify a small deterministic-plan update slice that is real in this codebase.
 
-One important repo fact already changes the framing: the current README and plan say Evacua has pivoted to a responder command center, while your proposed YC session says “household evacuation copilot.” That mismatch is useful if handled explicitly; it is weak if we pretend it is not there.
+One important repo fact already changes the framing: the current README and plan say Evacua has pivoted to a responder command center, while your proposed product framing says “household evacuation copilot.” That mismatch is useful if handled explicitly; it is weak if we pretend it is not there.
 
 Here’s the hard framing.
 
 **What I Understand**
-Evacua currently presents as a responder command center in the repo: incident ops, route updates, evacuation zones, alerts, voice ops, approval gates. Your YC session framing is household evacuation copilot. That mismatch is the first thing a strong coding-agent transcript should notice.
+Evacua currently presents as a responder command center in the repo: incident ops, route updates, evacuation zones, alerts, voice ops, approval gates. Your proposed product framing is household evacuation copilot. That mismatch is the first thing a strong coding-agent transcript should notice.
 
 Do not hide it. Use it.
 
@@ -121,9 +118,7 @@ Avoid live wildfire data integration, real-time route optimization, household on
 
 Also avoid making the agent “decide emergencies.” The product should update a plan and preserve the boundary: official evacuation orders and human judgment remain authoritative.
 
-**What would look strong to YC**
-
-A strong transcript would show you and the coding agent doing this:
+A strong engineering session would show this:
 
 1. Inspect the repo first.
 2. Notice the household-vs-responder mismatch.
@@ -136,7 +131,7 @@ A strong transcript would show you and the coding agent doing this:
 9. Review the diff critically.
 10. QA the behavior with examples.
 
-The strongest artifact is not a huge feature. It is a small module that makes the product more real.
+The strongest outcome is not a huge feature. It is a small module that makes the product more real.
 
 ---
 
@@ -171,12 +166,12 @@ Please:
 
 **Codex/GStack response**
 
-There is no existing TypeScript test runner in `package.json`; only `lint`, `typecheck`, and `build`. That affects the plan: either add a tiny test runner intentionally, or settle for weaker compile-only validation. For this YC session, I recommend adding Vitest because the feature’s whole point is deterministic behavior.
+There is no existing TypeScript test runner in `package.json`; only `lint`, `typecheck`, and `build`. That affects the plan: either add a tiny test runner intentionally, or settle for weaker compile-only validation. I recommend adding Vitest because the feature’s whole point is deterministic behavior.
 
 Using `gstack-autoplan`, with file edits intentionally held back.
 
 **Plan**
-Build the smallest useful core as a pure TypeScript domain module. No UI, no API route, no live data, no LLM. The YC transcript should show that we chose deterministic behavior first because this is a trust problem.
+Build the smallest useful core as a pure TypeScript domain module. No UI, no API route, no live data, no LLM. The coding-agent transcript should show that we chose deterministic behavior first because this is a trust problem.
 
 **Files to create**
 - `src/lib/evacuation-plan/revision.ts`
@@ -226,7 +221,7 @@ No live wildfire feeds, geospatial route calculation, official evacuation-order 
 **User prompt**
 
 ```text
-This plan is strong, but I want to keep the YC session small and reviewable.
+This plan is strong, but I want to keep this session small and reviewable.
 
 Before implementing, revise the plan with these constraints:
 - Do not add UI, API routes, Supabase changes, Mapbox changes, alert sending, or LLM calls.
@@ -280,7 +275,7 @@ Review the final diff like a skeptical senior engineer. Focus on:
 3. whether any emergency/safety claim is too broad,
 4. whether the tests actually prove the intended behavior,
 5. whether adding Vitest was justified as the smallest reasonable test setup,
-6. whether this stayed scoped to the YC-worthy vertical slice.
+6. whether this stayed scoped to the focused vertical slice.
 
 Do not make large architectural changes. Fix only obvious small issues. If you think something bigger should change, explain it as a risk instead of implementing it.
 ```
@@ -305,7 +300,7 @@ Review findings:
 - Deterministic rules now match the target case: primary route unavailable, backup promoted only if available, `watch -> prepare`, pet action only in prepare-or-higher posture, diff and reasons returned.
 - Idempotency is acceptable for this slice: repeated revision does not duplicate the pet-carrier action, re-promote routes, or downgrade posture.
 - Safety boundary is appropriately narrow: it says Evacua updates planning assumptions and does not replace official orders. It does not claim Evacua decides whether evacuation is safe.
-- Tests prove the intended behavior well for the YC vertical slice: target scenario, non-primary closure, no pets, no downgrade, idempotency, no backup, and closed-backup edge.
+- Tests prove the intended behavior well for the focused vertical slice: target scenario, non-primary closure, no pets, no downgrade, idempotency, no backup, and closed-backup edge.
 - Vitest is justified. This repo had no TS test runner, and deterministic behavior is the core product claim here.
 - Scope stayed tight: no UI, API routes, Supabase, Mapbox, alert sending, or LLM paths changed.
 
@@ -340,7 +335,7 @@ Then give me a concise QA report:
 - behaviors verified,
 - what was not verified,
 - remaining manual QA checklist,
-- whether this is safe to commit for the YC coding-agent transcript.
+- whether this is safe to commit.
 ```
 
 **Codex/GStack response**
@@ -382,18 +377,18 @@ Not verified:
 - Live wildfire/weather feed behavior.
 - End-to-end household workflow.
 
-Safe to commit for the YC coding-agent transcript: yes. This is small, deterministic, tested, scoped, and reviewable.
+Safe to commit: yes. This is small, deterministic, tested, scoped, and reviewable.
 
 ---
 
-## 6. Retro: Upload-Ready Summary
+## 6. Retro: Session Summary
 
 **User prompt**
 
 ```text
 Use gstack-retro.
 
-Summarize this coding-agent session for a YC Startup School upload.
+Summarize this coding-agent session for a coding-agent session summary.
 
 Include:
 1. what problem we scoped,
@@ -407,16 +402,16 @@ Include:
 9. what I should not overclaim,
 10. why this session shows good judgment with an AI coding agent.
 
-Keep it concise and written like a transcript summary I can paste at the top of a Markdown upload.
+Keep it concise and written like a session summary.
 ```
 
 **Codex/GStack response**
 
-## YC Coding-Agent Session Summary
+## Coding-Agent Session Summary
 
 We scoped a narrow product problem for Evacua: when wildfire conditions change, a household evacuation plan should update in a deterministic, explainable, and testable way.
 
-Early repo inspection found a mismatch: the current app is framed as a responder command center, while the proposed YC narrative was a household evacuation copilot. We treated that as a scoping signal, not something to hide. The session narrowed from “agentic wildfire copilot” to a pure TypeScript plan revision engine.
+Early repo inspection found a mismatch: the current app is framed as a responder command center, while the product direction I wanted to explore was a household evacuation copilot. We treated that as a scoping signal, not something to hide. The session narrowed from “agentic wildfire copilot” to a pure TypeScript plan revision engine.
 
 I pushed back on scope several times: no UI, no API route, no Supabase, no Mapbox, no alert sending, no LLM calls, and no claim that Evacua decides whether someone should evacuate. The implementation stayed focused on the smallest testable wedge.
 
