@@ -5,7 +5,7 @@ import os
 import asyncio
 import aiohttp
 
-API_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3002")
+API_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
 
 async def test_connection():
     print(f"🧪 Testing connection to: {API_URL}/api/fire-state\n")
@@ -29,7 +29,7 @@ async def test_connection():
                     return False
     except aiohttp.ClientConnectorError as e:
         print(f"❌ Connection failed!")
-        print(f"   Make sure Next.js is running on port 3002")
+        print(f"   Make sure Next.js is running at {API_URL}")
         print(f"   Error: {e}")
         return False
     except Exception as e:
