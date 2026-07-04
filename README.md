@@ -23,15 +23,25 @@ route-advisory overlays.
 | `/api/demo-readiness` | Non-secret readiness checks for demo keys and modes |
 | `/api/fire-state` | Active fires and fire stations from Supabase |
 | `/api/dispatch-responder` | Responder stats and nearest-team dispatch |
-| `/api/update-routes` | Route advisories and evacuation-zone writes |
-| `/api/fire-agent` | Autonomous route/evacuation scan over Supabase fire state |
+| `/api/update-routes` | Route advisories (GET/POST) and evacuation-zone writes (PUT) |
+| `/api/fire-agent` | Route/evacuation scan: GET analyzes, POST commits recommendations |
 | `/api/evacua-briefing` | Read-only assistant briefing synthesis |
 | `/api/evacua-commander` | Internal approval-gated responder plan tool |
-| `/api/evacua-agent-runs` | Durable Evacua intelligence run orchestration |
+| `/api/opus-commander` | Underlying planner behind `/api/evacua-commander` |
+| `/api/evacua-agent-runs` | Evacua intelligence run orchestration (in-memory store) |
 | `/api/evacua-agent-runs/:runId` | Fetch a stored intelligence run |
 | `/api/send-emergency-alert` | Dry-run alert preparation by default, live dispatch only when enabled |
+| `/api/assistant-suggestions` | Context-aware assistant suggestion chips |
+| `/api/voice-agent` | Typed/voice operator command handler (approval-gated) |
+| `/api/vapi/events` | Vapi webhook target for tool calls and transcripts |
+| `/api/vapi-webhook` | Agent-message queue polled by the dashboard feed |
+| `/api/signals` | Impact-scored crisis events for a coordinate |
+| `/api/weather` | Open-Meteo weather + air quality + fire-risk score |
+| `/api/geocode` | Nominatim geocoding (California-biased) |
 
 ## Environment
+
+See `.env.example` for the full annotated list. The core keys:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
@@ -48,6 +58,8 @@ ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL=claude-opus-4-7
 NEXT_PUBLIC_VAPI_PUBLIC_KEY=
 NEXT_PUBLIC_VAPI_ASSISTANT_ID=
+EVACUA_VAPI_WEBHOOK_TOKEN=
+EVACUA_REQUIRE_APPROVAL_TOKEN=
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` is optional but recommended for server-side writes.
@@ -122,9 +134,13 @@ The backend expects these Supabase tables/views:
 - `incidents`
 - `firestations`
 - `responders`
-- `responder_stats`
+- `responder_stats` (view)
 - `route_updates`
 - `evacuation_zones`
+
+Provision them by running `supabase/fire-ops.sql` in the Supabase SQL editor
+(it also seeds the Pine Ridge demo scenario). The voice-agent persistence
+tables live in `supabase/voice-agent.sql`. Neither is required for demo mode.
 
 ## Running Locally
 
@@ -135,3 +151,22 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Testing
+
+```bash
+pnpm test           # unit tests (vitest)
+pnpm typecheck
+pnpm lint
+```
+
+End-to-end suites run against a local server (default `http://localhost:3100`,
+override with `EVACUA_TEST_BASE`):
+
+```bash
+pnpm build && pnpm start -p 3100 &
+pnpm e2e:functional  # every route: happy paths, error paths, response shapes
+pnpm e2e:ai          # judge demo, voice intents, clarification, idempotency, approval gating
+pnpm e2e:stress      # concurrent load with latency percentiles + state-consistency checks
+pnpm e2e:a11y        # axe-core scan, skip link, live regions (needs Playwright chromium)
+```
