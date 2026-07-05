@@ -20,6 +20,7 @@ export const OpusCommanderRequestSchema = z.object({
     .optional(),
   mode: z.enum(["recommend", "execute-approved"]),
   operatorIntent: z.string().max(1200).optional(),
+  suppressAgentMessage: z.boolean().optional(),
 });
 
 const ActionTypeSchema = z.enum(["dispatch", "alert", "route", "evacuation", "monitor"]);

@@ -134,6 +134,8 @@ export default function IncidentsList({
           <button
             key={incident.id}
             type="button"
+            aria-label={`${incident.name ?? "Unnamed incident"}, ${risk} risk, ${containment}% contained${isSelected ? ", selected" : ""}`}
+            aria-pressed={isSelected}
             onClick={() => onIncidentClick?.(incident)}
             className={cn(
               "group relative w-full overflow-hidden rounded-lg border p-3 text-left transition-[transform,border-color,background-color,box-shadow]",
@@ -156,9 +158,9 @@ export default function IncidentsList({
                   <Activity className="h-3 w-3" strokeWidth={1.75} />
                   {String(incident.id).slice(0, 8)}
                 </div>
-                <h3 className="mt-1 truncate text-sm font-semibold text-[var(--color-text-primary)]">
+                <p className="mt-1 truncate text-sm font-semibold text-[var(--color-text-primary)]">
                   {incident.name ?? "Unnamed incident"}
-                </h3>
+                </p>
               </div>
               <RiskBadge risk={risk} />
             </div>
@@ -180,6 +182,7 @@ export default function IncidentsList({
 
             <Progress
               value={containment}
+              label={`${incident.name ?? "Incident"} containment ${containment}%`}
               className="mt-3 h-1 bg-white/[0.05]"
               indicatorClassName="bg-gradient-to-r from-[var(--color-cyan)] to-[var(--color-ember)]"
             />

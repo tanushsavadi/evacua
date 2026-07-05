@@ -43,7 +43,7 @@ async function callOpus(args: {
   const client = new Anthropic({ apiKey: args.apiKey });
   const message = await client.messages.create({
     model: args.model,
-    max_tokens: 1800,
+    max_tokens: 4096,
     stream: false,
     system: [
       "You are Evacua's internal strategic incident planner for wildfire responder operations.",
@@ -141,16 +141,18 @@ export async function POST(req: Request) {
           },
         ],
       });
-      enqueueAgentMessage({
-        action: "scan",
-        message: `Evacua prepared an incident plan for ${selectedFire.name}. Review the approval-gated actions before dispatch or public alerting.`,
-        data: {
-          runId: fallback.runId,
-          model: fallback.model,
-          incidentId: fallback.incidentId,
-          riskLevel: fallback.riskLevel,
-        },
-      });
+      if (!body.suppressAgentMessage) {
+        enqueueAgentMessage({
+          action: "scan",
+          message: `Evacua prepared an incident plan for ${selectedFire.name}. Review the approval-gated actions before dispatch or public alerting.`,
+          data: {
+            runId: fallback.runId,
+            model: fallback.model,
+            incidentId: fallback.incidentId,
+            riskLevel: fallback.riskLevel,
+          },
+        });
+      }
       return NextResponse.json(fallback);
     }
 
@@ -179,16 +181,18 @@ export async function POST(req: Request) {
         : null;
 
       if (plan) {
-        enqueueAgentMessage({
-          action: "scan",
-          message: `Evacua incident plan ready for ${selectedFire.name}: ${plan.riskLevel}.`,
-          data: {
-            runId: plan.runId,
-            model: plan.model,
-            incidentId: plan.incidentId,
-            riskLevel: plan.riskLevel,
-          },
-        });
+        if (!body.suppressAgentMessage) {
+          enqueueAgentMessage({
+            action: "scan",
+            message: `Evacua incident plan ready for ${selectedFire.name}: ${plan.riskLevel}.`,
+            data: {
+              runId: plan.runId,
+              model: plan.model,
+              incidentId: plan.incidentId,
+              riskLevel: plan.riskLevel,
+            },
+          });
+        }
         return NextResponse.json(plan);
       }
 

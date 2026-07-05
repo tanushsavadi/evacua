@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deriveCrisisState } from "@/lib/scoring/impact";
+import { deriveCrisisState, scoreAll } from "@/lib/scoring/impact";
 import {
   buildFireStateFromSupabase,
   fireStateToEvents,
@@ -33,13 +33,7 @@ export async function POST(req: Request) {
 
   try {
     const fireState = await buildFireStateFromSupabase();
-    const events = fireStateToEvents(fireState)
-      .map((event) => ({
-        ...event,
-        distanceKm: haversineKm(home.lat, home.lng, event.centroid.lat, event.centroid.lng),
-      }))
-      .sort((a, b) => (b.impact ?? 0) - (a.impact ?? 0))
-      .slice(0, 25);
+    const events = scoreAll(fireStateToEvents(fireState), home).slice(0, 25);
     const state = deriveCrisisState(events, body.previousState);
 
     return NextResponse.json({
@@ -59,15 +53,4 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
-}
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371;
-  const toRad = (v: number) => (v * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

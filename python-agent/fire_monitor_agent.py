@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-API_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3002")
+API_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
 MAPBOX_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 MONITORING_INTERVAL = 30  # seconds
 

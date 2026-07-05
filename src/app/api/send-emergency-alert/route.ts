@@ -4,6 +4,11 @@ import {
   AlertPayloadSchema,
   type AlertPayload,
 } from "@/lib/alerts/compose";
+import {
+  approvalErrorResponse,
+  markApprovedActionExecuted,
+  validateLiveActionApproval,
+} from "@/lib/voice-agent/approval";
 
 export const runtime = "nodejs";
 
@@ -20,6 +25,8 @@ type Body = {
     description?: string | null;
   };
   customMessage?: string;
+  pendingActionId?: string;
+  approvalToken?: string;
 };
 
 type ChannelResult = {
@@ -75,10 +82,14 @@ export async function POST(req: Request) {
     ? `${base}\n\nOperator note: ${body.customMessage}`
     : base;
 
+  const approval = await validateLiveActionApproval(body, ["alert"]);
+  if (!approval.ok) return approvalErrorResponse(approval.error);
+
   if (process.env.EVACUA_ALERT_MODE !== "live") {
     return NextResponse.json({
       success: true,
       dryRun: true,
+      approvalMode: approval.mode,
       channel: "dry_run",
       channels: [
         {
@@ -195,25 +206,12 @@ export async function POST(req: Request) {
 
   const success = channelResults.some((c) => c.ok);
 
-  // Demo mode fallback: if no channels succeeded but we are in demo mode, return success.
-  const isDemo = !token || !chatId;
-  if (isDemo && !success) {
-    console.log("DEMO MODE: Emergency Alert Prepared");
-    console.log("-----------------------------------");
-    console.log(message);
-    console.log("-----------------------------------");
-    
-    return NextResponse.json({
-      success: true,
-      channel: "demo",
-      message: "Demo Mode: Alert logged to console. (Set TELEGRAM_BOT_TOKEN to enable real alerts)",
-      composedText: message,
-    });
-  }
+  if (success) await markApprovedActionExecuted(body.pendingActionId);
 
   return NextResponse.json(
     {
       success,
+      approvalMode: approval.mode,
       channel: success ? channelResults.find((c) => c.ok)?.channel : "fallback",
       channels: channelResults,
       messageSid: success ? "sent" : undefined,

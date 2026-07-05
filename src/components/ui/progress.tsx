@@ -5,6 +5,8 @@ type ProgressProps = React.ComponentProps<"div"> & {
   value?: number | null;
   max?: number;
   indicatorClassName?: string;
+  /** Accessible name; required for screen readers to announce the bar. */
+  label?: string;
 };
 
 function Progress({
@@ -12,6 +14,7 @@ function Progress({
   value = 0,
   max = 100,
   indicatorClassName,
+  label,
   ...props
 }: ProgressProps) {
   const safeMax = Number.isFinite(max) && max > 0 ? max : 100;
@@ -24,6 +27,7 @@ function Progress({
     <div
       data-slot="progress"
       role="progressbar"
+      aria-label={label}
       aria-valuemin={0}
       aria-valuemax={safeMax}
       aria-valuenow={safeValue}

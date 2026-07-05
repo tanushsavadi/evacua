@@ -59,15 +59,9 @@ export function useWeather(lat: number | null, lon: number | null) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setError(msg);
-      setWeather({
-        wind: { speed: 0, deg: 0, direction: 'N/A' },
-        temp: 0,
-        humidity: 0,
-        visibility: null,
-        airQuality: null,
-        description: 'Unavailable',
-        location: 'Unknown',
-      });
+      // Keep weather null so panels render a standby state instead of
+      // misleading zeroed readings (0°F, 0 mph) when the upstream fails.
+      setWeather(null);
     } finally {
       setLoading(false);
     }

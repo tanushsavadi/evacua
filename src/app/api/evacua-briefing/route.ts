@@ -45,6 +45,7 @@ const BriefingRequestSchema = z.object({
     )
     .max(8)
     .optional(),
+  suppressAgentMessage: z.boolean().optional(),
 });
 
 const BriefingOutputSchema = z.object({
@@ -211,7 +212,7 @@ function fallbackBriefing(context: OpusCommanderContext): BriefingOutput {
   ].join(" ");
   return {
     brief,
-    spokenBrief: `${context.selectedFire.name} is ${context.riskLevel}. Watch containment, route changes, and whether dispatch or alert approval is needed next.`,
+    spokenBrief: `${context.selectedFire.name} is in ${riskPosture} posture. Watch containment, route changes, and whether dispatch or alert approval is needed next.`,
     operatorChecklist: [
       `Confirm ${context.selectedFire.name} still warrants ${riskPosture} posture before acting.`,
       routeCount > 0
@@ -272,7 +273,7 @@ async function runEvacuaToolLoop(args: {
   for (let i = 0; i < 5; i += 1) {
     const message = (await client.messages.create({
       model: OPUS_COMMANDER_MODEL,
-      max_tokens: 1800,
+      max_tokens: 4096,
       stream: false,
       tools: EVACUA_TOOLS,
       messages,
@@ -367,32 +368,44 @@ export async function POST(req: Request) {
 
     let output = fallbackBriefing(context);
     if (process.env.ANTHROPIC_API_KEY) {
-      const toolRun = await runEvacuaToolLoop({
-        context,
-        operatorQuestion: parsed.data.operatorQuestion,
-        recentTranscript: parsed.data.recentTranscript,
-      });
-      trace.push(...toolRun.trace);
-      const json = extractJsonObject(toolRun.text);
-      let parsedJson: unknown = null;
-      if (json) {
-        try {
-          parsedJson = JSON.parse(json);
-        } catch {
-          parsedJson = null;
+      try {
+        const toolRun = await runEvacuaToolLoop({
+          context,
+          operatorQuestion: parsed.data.operatorQuestion,
+          recentTranscript: parsed.data.recentTranscript,
+        });
+        trace.push(...toolRun.trace);
+        const json = extractJsonObject(toolRun.text);
+        let parsedJson: unknown = null;
+        if (json) {
+          try {
+            parsedJson = JSON.parse(json);
+          } catch {
+            parsedJson = null;
+          }
         }
-      }
-      const modelOutput = parsedJson ? BriefingOutputSchema.safeParse(parsedJson) : null;
-      if (modelOutput?.success) {
-        output = {
-          ...modelOutput.data,
-          incidentBriefMarkdown: modelOutput.data.incidentBriefMarkdown ?? buildIncidentBriefMarkdown(context),
-        };
-      } else {
+        const modelOutput = parsedJson ? BriefingOutputSchema.safeParse(parsedJson) : null;
+        if (modelOutput?.success) {
+          output = {
+            ...modelOutput.data,
+            incidentBriefMarkdown: modelOutput.data.incidentBriefMarkdown ?? buildIncidentBriefMarkdown(context),
+          };
+        } else {
+          trace.push({
+            step: "Validated assistant synthesis",
+            status: "complete",
+            detail: "Assistant synthesis was normalized into Evacua's deterministic safety schema.",
+          });
+        }
+      } catch (error) {
+        console.warn(
+          "Evacua briefing synthesis unavailable; returning deterministic briefing.",
+          error instanceof Error ? error.message : "",
+        );
         trace.push({
-          step: "Validated assistant synthesis",
-          status: "complete",
-          detail: "Assistant synthesis was normalized into Evacua's deterministic safety schema.",
+          step: "Assistant synthesis",
+          status: "failed",
+          detail: "Live synthesis unavailable; returned deterministic safe briefing.",
         });
       }
     } else {
@@ -403,15 +416,17 @@ export async function POST(req: Request) {
       });
     }
 
-    enqueueAgentMessage({
-      action: "scan",
-      message: output.spokenBrief,
-      data: {
-        incidentId: selectedFire.id,
-        confidence: output.confidence,
-        checklist: output.operatorChecklist,
-      },
-    });
+    if (!parsed.data.suppressAgentMessage) {
+      enqueueAgentMessage({
+        action: "scan",
+        message: output.spokenBrief,
+        data: {
+          incidentId: selectedFire.id,
+          confidence: output.confidence,
+          checklist: output.operatorChecklist,
+        },
+      });
+    }
 
     return NextResponse.json({
       ...output,

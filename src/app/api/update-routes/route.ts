@@ -5,6 +5,11 @@ import {
   createRouteUpdate,
   listRecentRouteUpdates,
 } from "@/lib/ops/supabase-fire-ops";
+import {
+  approvalErrorResponse,
+  markApprovedActionExecuted,
+  validateLiveActionApproval,
+} from "@/lib/voice-agent/approval";
 
 export const runtime = "nodejs";
 
@@ -17,12 +22,16 @@ type RouteUpdateBody = {
   original_route?: unknown;
   reason?: string;
   risk_score?: number | null;
+  pendingActionId?: string;
+  approvalToken?: string;
 };
 
 type EvacuationBody = {
   fire_id?: string;
   zone_name?: string;
   polygon?: unknown;
+  pendingActionId?: string;
+  approvalToken?: string;
 };
 
 export async function GET() {
@@ -55,8 +64,14 @@ export async function POST(req: Request) {
   }
 
   try {
+    const approval = await validateLiveActionApproval(body, ["route"]);
+    if (!approval.ok) return approvalErrorResponse(approval.error);
+
     const route_update = await createRouteUpdate({
       station_id: Number(body.station_id),
+      station_name: body.station_name,
+      fire_id: body.fire_id,
+      fire_name: body.fire_name,
       new_route: body.new_route,
       original_route: body.original_route,
       reason: body.reason,
@@ -69,8 +84,11 @@ export async function POST(req: Request) {
       data: route_update,
     });
 
+    await markApprovedActionExecuted(body.pendingActionId);
+
     return NextResponse.json({
       success: true,
+      approvalMode: approval.mode,
       route_update,
       message: "Route update saved successfully",
     });
@@ -101,6 +119,9 @@ export async function PUT(req: Request) {
   }
 
   try {
+    const approval = await validateLiveActionApproval(body, ["evacuation"]);
+    if (!approval.ok) return approvalErrorResponse(approval.error);
+
     const evacuation_zone = await createEvacuationZone({
       fire_id: body.fire_id,
       zone_name: body.zone_name,
@@ -113,8 +134,11 @@ export async function PUT(req: Request) {
       data: evacuation_zone,
     });
 
+    await markApprovedActionExecuted(body.pendingActionId);
+
     return NextResponse.json({
       success: true,
+      approvalMode: approval.mode,
       evacuation_zone,
       message: "Evacuation zone created successfully",
     });
