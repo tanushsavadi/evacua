@@ -2,6 +2,13 @@
 
 Voice-first responder command center for wildfire operations.
 
+Built for Anthropic's **Built with Opus 4.7: a Claude Code hackathon** — a
+selective event limited to 500 participants. Claude Opus 4.7 powers the
+in-product incident planner (briefings, agentic tool loops, role synthesis,
+and voice intent fallback), and the project itself was engineered with Claude
+Code using a verification-driven workflow: every change gated through
+typecheck, lint, unit tests, and the end-to-end suites under `scripts/e2e/`.
+
 Evacua uses a responder-focused backend model: Supabase stores active
 incidents, fire stations, responders, route advisories, and evacuation zones.
 The Next.js API routes expose that data to a responder-only command surface for
